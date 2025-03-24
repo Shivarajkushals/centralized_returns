@@ -594,7 +594,13 @@ elif st.session_state.page == "upload":
             uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx"])
             
             if uploaded_file is not None:
-                uploaded_df = pd.read_csv(uploaded_file) if uploaded_file.name.endswith(".csv") else pd.read_excel(uploaded_file)
+                if uploaded_file.name.endswith(".csv"):
+                    uploaded_df = pd.read_csv(uploaded_file)
+                else:
+                    try:
+                        uploaded_df = pd.read_excel(uploaded_file, engine="openpyxl")
+                    except ImportError:
+                        st.error("Missing dependency: Please install 'openpyxl' using `pip install openpyxl`.")
                 
                 st.write("Uploaded file")
                 st.dataframe(uploaded_df)
