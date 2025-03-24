@@ -6,17 +6,22 @@ import os
 import git
 import json
 
-# Load GitHub token from secrets
+# Load GitHub token from Streamlit secrets
 GITHUB_TOKEN = st.secrets["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"]
-REPO_URL = "https://github.com/Shivarajkushals/centralized_returns.git"
-REPO_PATH = "/tmp/centralized_returns"
 
-# Clone repo using the token
-if not os.path.exists(REPO_PATH):
-    git.Repo.clone_from(
-        REPO_URL.replace("https://", f"https://{GITHUB_TOKEN}@"),
-        REPO_PATH
-    )
+# GitHub repository details
+REPO_OWNER = "Shivarajkushals"
+REPO_NAME = "centralized_returns"
+
+# Files to fetch
+FILES = ["Centralized_returns.py", "requirements.txt"]
+
+# Function to fetch files from GitHub
+def fetch_github_file(file_path):
+    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
+    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
+
+    response = requests.get(url, headers=headers)
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
