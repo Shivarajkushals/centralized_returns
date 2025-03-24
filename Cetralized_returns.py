@@ -668,8 +668,8 @@ elif st.session_state.page == "upload":
                     
                     # Adding additional constant columns
                     sr_df["is_active"] = 1  
-                    sr_df["created_date"] = pd.Timestamp.now()  
-                    sr_df["modified_date"] = pd.Timestamp.now()  
+                    sr_df["created_date"] = datetime.now()  
+                    sr_df["modified_date"] = datetime.now()  
                     sr_df["created_by"] = "WH Team"  
                     sr_df["modified_by"] = "WH Team"  
                     sr_df["tran_type"] = "Sales Returns" 
@@ -682,8 +682,8 @@ elif st.session_state.page == "upload":
                     
                     # Adding additional constant columns
                     to_df["is_active"] = 1  
-                    to_df["created_date"] = pd.Timestamp.now()  
-                    to_df["modified_date"] = pd.Timestamp.now()  
+                    to_df["created_date"] = datetime.now()  
+                    to_df["modified_date"] = datetime.now()  
                     to_df["created_by"] = "WH Team"  
                     to_df["modified_by"] = "WH Team"  
                     to_df["branch_recived"] = "Banglore_WH" 
