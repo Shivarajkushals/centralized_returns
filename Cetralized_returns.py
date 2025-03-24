@@ -670,9 +670,7 @@ elif st.session_state.page == "upload":
                     }, inplace=True)
                     
                     # Adding additional constant columns
-                    sr_df["is_active"] = 1  
-                    sr_df["created_date"] = current_time  
-                    sr_df["modified_date"] = current_time  
+                    sr_df["is_active"] = 1    
                     sr_df["created_by"] = "WH Team"  
                     sr_df["modified_by"] = "WH Team"  
                     sr_df["tran_type"] = "Sales Returns" 
@@ -685,8 +683,6 @@ elif st.session_state.page == "upload":
                     
                     # Adding additional constant columns
                     to_df["is_active"] = 1  
-                    to_df["created_date"] = current_time  
-                    to_df["modified_date"] = current_time  
                     to_df["created_by"] = "WH Team"  
                     to_df["modified_by"] = "WH Team"  
                     to_df["branch_recived"] = "Banglore_WH" 
