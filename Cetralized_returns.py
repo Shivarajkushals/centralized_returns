@@ -2,8 +2,6 @@ import streamlit as st
 import pandas as pd
 import mysql.connector
 import requests
-import os
-import git
 import json
 from datetime import datetime
 
@@ -58,6 +56,16 @@ def load_credentials():
 VALID_CREDENTIALS = load_credentials()
 
 DB_CONFIG = st.secrets["db_config"]
+
+# =============================================================================
+# # Database credentials
+# DB_CONFIG = {
+#     "host": "stage-rds.cchcmbdwnmis.ap-south-1.rds.amazonaws.com",
+#     "user": "KushalsAdmin",
+#     "password": "PdXA5Uvpg4DUAr4U",
+#     "database": "kushal-prod-db"
+# }
+# =============================================================================
 
 def fetch_all_data():
     try:
@@ -353,11 +361,19 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
 def calculate_qty(design_number):
     return str(design_number).count("-") + 1 if pd.notna(design_number) else 1
 
-# Function to insert data into tbl_wh_sales_returns
+# Modify the insert_sales_returns function
 def insert_sales_returns(sr_df):
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
+        
+        # Convert datetime columns to string format
+        for col in sr_df.columns:
+            if pd.api.types.is_datetime64_any_dtype(sr_df[col]):
+                sr_df[col] = sr_df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Convert any remaining Timestamp objects
+        sr_df = sr_df.astype(object).replace({pd.Timestamp: lambda x: x.strftime('%Y-%m-%d %H:%M:%S')})
         
         columns = ", ".join(sr_df.columns)
         placeholders = ", ".join(["%s"] * len(sr_df.columns))
@@ -380,11 +396,19 @@ def insert_sales_returns(sr_df):
         st.error(f"❌ Error inserting data into tbl_wh_sales_returns: {e}")
         return 0
 
-# Function to insert data into tbl_wh_transfer_out
+# Similar modifications for the insert_transfer_out function
 def insert_transfer_out(to_df):
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
+        
+        # Convert datetime columns to string format
+        for col in to_df.columns:
+            if pd.api.types.is_datetime64_any_dtype(to_df[col]):
+                to_df[col] = to_df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
+        
+        # Convert any remaining Timestamp objects
+        to_df = to_df.astype(object).replace({pd.Timestamp: lambda x: x.strftime('%Y-%m-%d %H:%M:%S')})
         
         columns = ", ".join([f"{col}" for col in to_df.columns])
         placeholders = ", ".join(["%s"] * len(to_df.columns))
@@ -690,7 +714,7 @@ elif st.session_state.page == "upload":
                     to_df["created_by"] = "WH Team"  
                     to_df["modified_by"] = "WH Team"  
                     to_df["branch_recived"] = "Banglore_WH" 
-                    to_df["transfer_out_date"] = pd.Timestamp.now()
+                    to_df["transfer_out_date"] = current_time
             
                     sr_inserted = insert_sales_returns(sr_df)
                     to_inserted = insert_transfer_out(to_df)
@@ -730,53 +754,3 @@ elif st.session_state.page == "upload":
         st.dataframe(recent_df)
         pass
     
-            
-            # Add a button to create the table if it doesn't exist
-# =============================================================================
-#             if st.button("Initialize Store Configuration Table"):
-#                 try:
-#                     conn = mysql.connector.connect(**DB_CONFIG)
-#                     cursor = conn.cursor()
-#                     
-#                     # Check if table exists
-#                     cursor.execute("SHOW TABLES LIKE 'tbl_wh_store_config'")
-#                     table_exists = cursor.fetchone()
-#                     
-#                     if not table_exists:
-#                         # Create the table if it doesn't exist
-#                         create_table_query = """
-#                         CREATE TABLE IF NOT EXISTS tbl_wh_store_config (
-#                             id INT AUTO_INCREMENT PRIMARY KEY,
-#                             store_name VARCHAR(255) NOT NULL,
-#                             max_sr VARCHAR(20),
-#                             max_to VARCHAR(20),
-#                             is_active TINYINT(1) DEFAULT 1,
-#                             created_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-#                             modified_date TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-#                         )
-#                         """
-#                         cursor.execute(create_table_query)
-#                         st.success("✅ Store configuration table created successfully!")
-#                     else:
-#                         # If table exists but is_active column is missing, add it
-#                         cursor.execute("SHOW COLUMNS FROM tbl_wh_store_config LIKE 'is_active'")
-#                         column_exists = cursor.fetchone()
-#                         
-#                         if not column_exists:
-#                             alter_table_query = """
-#                             ALTER TABLE tbl_wh_store_config
-#                             ADD COLUMN is_active TINYINT(1) DEFAULT 1
-#                             """
-#                             cursor.execute(alter_table_query)
-#                             st.success("✅ Added is_active column to store configuration table!")
-#                     
-#                     conn.commit()
-#                     cursor.close()
-#                     conn.close()
-#                     
-#                     # Rerun to refresh the page
-#                     st.rerun()
-#                     
-#                 except Exception as e:
-#                     st.error(f"❌ Error initializing store configuration table: {e}")
-# =============================================================================
