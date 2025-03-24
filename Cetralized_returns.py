@@ -10,15 +10,17 @@ import json
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
 
-# Hide Streamlit's menu and footer
-hide_streamlit_style = """
-    <style>
-        #MainMenu {visibility: hidden;} /* Hides the three dots menu */
-        footer {visibility: hidden;} /* Hides the footer */
-        header {visibility: hidden;} /* Hides the header */
-    </style>
-"""
-st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# =============================================================================
+# # Hide Streamlit's menu and footer
+# hide_streamlit_style = """
+#     <style>
+#         #MainMenu {visibility: hidden;} /* Hides the three dots menu */
+#         footer {visibility: hidden;} /* Hides the footer */
+#         header {visibility: hidden;} /* Hides the header */
+#     </style>
+# """
+# st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+# =============================================================================
 
 # Initialize session state variables
 if "page" not in st.session_state:
