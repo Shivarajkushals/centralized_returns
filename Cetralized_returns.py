@@ -681,7 +681,8 @@ elif st.session_state.page == "upload":
                     sr_df["is_active"] = 1
                     sr_df["created_date"] = current_time  # Convert to string
                     sr_df["modified_date"] = current_time  
-                    sr_df["created_by"] = "WH Team"  
+                    sr_df["return_date"] = sr_df["return_date"].strftime('%Y-%m-%d %H:%M:%S')
+                    sr_df["created_by"] = "WH Team"
                     sr_df["modified_by"] = "WH Team"  
                     sr_df["tran_type"] = "Sales Returns" 
             
