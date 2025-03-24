@@ -9,9 +9,9 @@ import json
 # Load GitHub token from secrets
 GITHUB_TOKEN = st.secrets["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"]
 REPO_URL = "https://github.com/Shivarajkushals/centralized_returns.git"
+REPO_PATH = "/tmp/centralized_returns"
 
 # Clone repo using the token
-REPO_PATH = "/tmp/centralized_returns"
 if not os.path.exists(REPO_PATH):
     git.Repo.clone_from(
         REPO_URL.replace("https://", f"https://{GITHUB_TOKEN}@"),
