@@ -6,40 +6,18 @@ import os
 import git
 import json
 
-# Load GitHub token securely
-try:
-    GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-except KeyError:
-    st.error("❌ GitHub token not found in Streamlit secrets!")
-    st.stop()
-
-REPO_URL = f"https://{GITHUB_TOKEN}@github.com/Shivarajkushals/centralized_returns.git"
-CLONE_PATH = "/tmp/centralized_returns"
-
-# Clone repo securely
-if not os.path.exists(CLONE_PATH):
-    try:
-        git.Repo.clone_from(REPO_URL, CLONE_PATH)
-        st.success("✅ Repository cloned successfully!")
-    except Exception as e:
-        st.error(f"❌ Cloning failed: {str(e)}")
-else:
-    st.info("ℹ️ Repository already exists, skipping clone.")
-
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
 
-# =============================================================================
-# # Hide Streamlit's menu and footer
-# hide_streamlit_style = """
-#     <style>
-#         #MainMenu {visibility: hidden;} /* Hides the three dots menu */
-#         footer {visibility: hidden;} /* Hides the footer */
-#         header {visibility: hidden;} /* Hides the header */
-#     </style>
-# """
-# st.markdown(hide_streamlit_style, unsafe_allow_html=True)
-# =============================================================================
+# Hide Streamlit's menu and footer
+hide_streamlit_style = """
+    <style>
+        #MainMenu {visibility: hidden;} /* Hides the three dots menu */
+        footer {visibility: hidden;} /* Hides the footer */
+        header {visibility: hidden;} /* Hides the header */
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
 
 # Initialize session state variables
 if "page" not in st.session_state:
