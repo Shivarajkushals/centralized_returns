@@ -7,7 +7,7 @@ import git
 import json
 
 # Load GitHub token from Streamlit secrets
-GITHUB_TOKEN = st.secrets["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"]
+GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 
 # GitHub repository details
 REPO_OWNER = "Shivarajkushals"
