@@ -56,7 +56,7 @@ def load_credentials():
 # Load credentials
 VALID_CREDENTIALS = load_credentials()
 
-db_config = st.secrets["db_config"]
+DB_CONFIG = st.secrets["db_config"]
 
 def fetch_all_data():
     try:
