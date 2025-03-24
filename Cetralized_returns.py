@@ -2,10 +2,21 @@ import streamlit as st
 import pandas as pd
 import mysql.connector
 import requests
-# =============================================================================
-# import base64
-# =============================================================================
+import os
+import git
 import json
+
+# Load GitHub token from secrets
+GITHUB_TOKEN = st.secrets["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"]
+REPO_URL = "https://github.com/Shivarajkushals/centralized_returns.git"
+
+# Clone repo using the token
+REPO_PATH = "/tmp/centralized_returns"
+if not os.path.exists(REPO_PATH):
+    git.Repo.clone_from(
+        REPO_URL.replace("https://", f"https://{GITHUB_TOKEN}@"),
+        REPO_PATH
+    )
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
