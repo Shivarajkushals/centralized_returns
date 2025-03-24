@@ -6,39 +6,25 @@ import os
 import git
 import json
 
-# Load GitHub token from Streamlit secrets
+# Load GitHub token securely
 try:
     GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
 except KeyError:
     st.error("❌ GitHub token not found in Streamlit secrets!")
     st.stop()
 
-# GitHub repository details
-REPO_OWNER = "Shivarajkushals"
-REPO_NAME = "centralized_returns"
+REPO_URL = f"https://{GITHUB_TOKEN}@github.com/Shivarajkushals/centralized_returns.git"
+CLONE_PATH = "/tmp/centralized_returns"
 
-# Files to fetch
-FILES = ["Centralized_returns.py", "requirements.txt"]
-
-# Function to fetch files from GitHub
-def fetch_github_file(file_path):
-    url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
-    headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-
-    response = requests.get(url, headers=headers)
-
-    if response.status_code == 200:
-        file_content = response.json().get("content", None)
-        if file_content:
-            decoded_content = base64.b64decode(file_content).decode("utf-8")
-            return decoded_content
-        else:
-            st.error(f"⚠️ No content found in {file_path}.")
-            return None
-    else:
-        st.error(f"❌ Failed to fetch {file_path}. Status Code: {response.status_code}")
-        st.write(response.json())  # Debugging: Print full error response
-        return None
+# Clone repo securely
+if not os.path.exists(CLONE_PATH):
+    try:
+        git.Repo.clone_from(REPO_URL, CLONE_PATH)
+        st.success("✅ Repository cloned successfully!")
+    except Exception as e:
+        st.error(f"❌ Cloning failed: {str(e)}")
+else:
+    st.info("ℹ️ Repository already exists, skipping clone.")
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
