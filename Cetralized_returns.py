@@ -57,16 +57,6 @@ VALID_CREDENTIALS = load_credentials()
 
 DB_CONFIG = st.secrets["db_config"]
 
-# =============================================================================
-# # Database credentials
-# DB_CONFIG = {
-#     "host": "stage-rds.cchcmbdwnmis.ap-south-1.rds.amazonaws.com",
-#     "user": "KushalsAdmin",
-#     "password": "PdXA5Uvpg4DUAr4U",
-#     "database": "kushal-prod-db"
-# }
-# =============================================================================
-
 def fetch_all_data():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
