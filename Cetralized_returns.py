@@ -57,6 +57,16 @@ VALID_CREDENTIALS = load_credentials()
 
 DB_CONFIG = st.secrets["db_config"]
 
+# =============================================================================
+# # Database credentials
+# DB_CONFIG = {
+#     "host": "stage-rds.cchcmbdwnmis.ap-south-1.rds.amazonaws.com",
+#     "user": "KushalsAdmin",
+#     "password": "PdXA5Uvpg4DUAr4U",
+#     "database": "kushal-prod-db"
+# }
+# =============================================================================
+
 def fetch_all_data():
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
@@ -351,19 +361,11 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
 def calculate_qty(design_number):
     return str(design_number).count("-") + 1 if pd.notna(design_number) else 1
 
-# Modify the insert_sales_returns function
+# Function to insert data into tbl_wh_sales_returns
 def insert_sales_returns(sr_df):
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        
-        # Convert datetime columns to string format
-        for col in sr_df.columns:
-            if pd.api.types.is_datetime64_any_dtype(sr_df[col]):
-                sr_df[col] = sr_df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Convert any remaining Timestamp objects
-        sr_df = sr_df.astype(object).replace({pd.Timestamp: lambda x: x.strftime('%Y-%m-%d %H:%M:%S')})
         
         columns = ", ".join(sr_df.columns)
         placeholders = ", ".join(["%s"] * len(sr_df.columns))
@@ -386,19 +388,11 @@ def insert_sales_returns(sr_df):
         st.error(f"❌ Error inserting data into tbl_wh_sales_returns: {e}")
         return 0
 
-# Similar modifications for the insert_transfer_out function
+# Function to insert data into tbl_wh_transfer_out
 def insert_transfer_out(to_df):
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        
-        # Convert datetime columns to string format
-        for col in to_df.columns:
-            if pd.api.types.is_datetime64_any_dtype(to_df[col]):
-                to_df[col] = to_df[col].dt.strftime('%Y-%m-%d %H:%M:%S')
-        
-        # Convert any remaining Timestamp objects
-        to_df = to_df.astype(object).replace({pd.Timestamp: lambda x: x.strftime('%Y-%m-%d %H:%M:%S')})
         
         columns = ", ".join([f"{col}" for col in to_df.columns])
         placeholders = ", ".join(["%s"] * len(to_df.columns))
