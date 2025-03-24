@@ -6,9 +6,6 @@ import os
 import git
 import json
 
-# Load GitHub token from Streamlit secrets
-GITHUB_TOKEN = st.secrets["GITHUB_TOKEN"]
-
 # GitHub repository details
 REPO_OWNER = "Shivarajkushals"
 REPO_NAME = "centralized_returns"
@@ -20,8 +17,16 @@ FILES = ["Centralized_returns.py", "requirements.txt"]
 def fetch_github_file(file_path):
     url = f"https://api.github.com/repos/{REPO_OWNER}/{REPO_NAME}/contents/{file_path}"
     headers = {"Authorization": f"token {GITHUB_TOKEN}"}
-
+    
     response = requests.get(url, headers=headers)
+
+    if response.status_code == 200:
+        file_content = response.json()["content"]
+        decoded_content = base64.b64decode(file_content).decode("utf-8")
+        return decoded_content
+    else:
+        st.error(f"❌ Failed to fetch {file_path}: {response.status_code}")
+        return None
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
