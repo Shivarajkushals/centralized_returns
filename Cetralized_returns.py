@@ -416,7 +416,7 @@ def expand_design_numbers(df):
         # Add a new row for each additional part (excluding the first)
         for part in design_parts[1:]:
             new_row = row.copy()
-            new_row["Design No"] = part  # Assign the new design number
+            new_row["design numbers"] = part  # Assign the new design number
             new_rows.append(new_row.to_dict())
     
     return pd.DataFrame(new_rows)
