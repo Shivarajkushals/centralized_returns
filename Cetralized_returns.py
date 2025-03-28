@@ -405,6 +405,22 @@ def insert_transfer_out(to_df):
         st.error(f"❌ Error inserting data into tbl_wh_transfer_out: {e}")
         return 0
 
+# Function to split and expand rows
+def expand_design_numbers(df):
+    new_rows = []
+    
+    for _, row in df.iterrows():
+        design_parts = row["Design No"].split("-")  # Split by '-'
+        new_rows.append(row.to_dict())  # Keep original row
+        
+        # Add a new row for each additional part (excluding the first)
+        for part in design_parts[1:]:
+            new_row = row.copy()
+            new_row["Design No"] = part  # Assign the new design number
+            new_rows.append(new_row.to_dict())
+    
+    return pd.DataFrame(new_rows)
+
 # ---------------------------- PAGE 1: LOGIN ---------------------------------
 if st.session_state.page == "login":
     with main_container.container():
@@ -606,6 +622,8 @@ elif st.session_state.page == "upload":
             
                 # Standardizing column names (Fix for 'Stores' KeyError)
                 uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+                
+                uploaded_df = expand_design_numbers(uploaded_df)
                 
                 uploaded_df["qty"] = uploaded_df["design numbers"].astype(str).apply(calculate_qty)
                 
