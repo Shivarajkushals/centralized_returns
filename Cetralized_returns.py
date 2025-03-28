@@ -413,16 +413,13 @@ def expand_design_numbers(df):
         design_str = str(row["design numbers"])  # Ensure it's a string
         design_parts = design_str.split("-")  # Split by '-'
         
-        new_rows.append(row.to_dict())  # Keep original row
-        
-        # Add a new row for each additional part (excluding the first)
-        for part in design_parts[1:]:
+        # Only add split values (remove original row if it had "-")
+        for part in design_parts:
             new_row = row.copy()
-            new_row["design numbers"] = part  # Assign the new design number
+            new_row["design numbers"] = part.strip()  # Assign the new design number
             new_rows.append(new_row.to_dict())
     
     return pd.DataFrame(new_rows)
-
 # ---------------------------- PAGE 1: LOGIN ---------------------------------
 if st.session_state.page == "login":
     with main_container.container():
