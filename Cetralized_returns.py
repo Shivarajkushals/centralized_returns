@@ -410,7 +410,7 @@ def expand_design_numbers(df):
     new_rows = []
     
     for _, row in df.iterrows():
-        design_parts = row["Design No"].split("-")  # Split by '-'
+        design_parts = row["design numbers"].split("-")  # Split by '-'
         new_rows.append(row.to_dict())  # Keep original row
         
         # Add a new row for each additional part (excluding the first)
