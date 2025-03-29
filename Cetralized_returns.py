@@ -451,7 +451,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         # Add table headers
         pdf.ln(10)
         col_widths = [30, 30, 30, 30, 30, 30, 20]  # Adjust column widths
-        headers = ["Design No", "Outlet Name", "Item Name", "Color", "Polish", "Size", "Qty"]
+        headers = ["Design No", "Item Name", "Color", "Polish", "Size", "Qty", "MRP Amount"]
         
         for i, header in enumerate(headers):
             pdf.cell(col_widths[i], 10, header, border=1, align="C")
@@ -460,12 +460,12 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         # Add table data
         for _, row in outlet_df.iterrows():
             pdf.cell(col_widths[0], 10, str(row['design_no']), border=1, align="C")
-            pdf.cell(col_widths[1], 10, str(row['outlet_name']), border=1, align="C")
             pdf.cell(col_widths[2], 10, str(row['item_name']), border=1, align="C")
             pdf.cell(col_widths[3], 10, str(row['color']), border=1, align="C")
             pdf.cell(col_widths[4], 10, str(row['polish']), border=1, align="C")
             pdf.cell(col_widths[5], 10, str(row['size']), border=1, align="C")
             pdf.cell(col_widths[6], 10, str(row['Qty']), border=1, align="C")
+            pdf.cell(col_widths[7], 10, str(row['MRP_Amount']), border=1, align="C")
             pdf.ln()
 
         # Save PDF with outlet name
