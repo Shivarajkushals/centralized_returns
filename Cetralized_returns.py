@@ -337,15 +337,38 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
         
         # Commit and close
         conn.commit()
+
+        cursor.execute("""
+            SELECT 
+                t1.design_no, 
+                t1.outlet_name, 
+                t2.item_name, 
+                t2.color, 
+                t2.polish, 
+                t2.size, 
+                SUM(t1.sold_qty) AS Qty
+            FROM tbl_wh_sales_returns t1
+            LEFT JOIN tbl_item_data t2 
+                ON t1.combination_id = t2.combination_id
+            GROUP BY 
+                t1.design_no, 
+                t1.outlet_name;
+        """)
+        sales_data = cursor.fetchall()
+
+        # Close connection
         cursor.close()
         conn.close()
         
         print("Store max SR and TO numbers updated successfully!")
         st.success("✅ Store max SR and TO numbers updated successfully!")
-        
+
+        return sales_data  # Return fetched data if needed
+
     except mysql.connector.Error as err:
         print("Error:", err)
         st.error(f"❌ Error updating store config: {err}")
+        return None
 
 # Function to calculate Qty based on "-" in Design Numbers
 def calculate_qty(design_number):
@@ -696,7 +719,7 @@ elif st.session_state.page == "upload":
             
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
-            
+                    
                     csv_uploaded = uploaded_df.to_csv(index=False).encode("utf-8")
                     st.download_button("Download Updated CSV", csv_uploaded, "updated_data.csv", "text/csv")
             
@@ -718,6 +741,8 @@ elif st.session_state.page == "upload":
     
     elif page == "TO page":
         data = fetch_all_data()  # Fetch all required data in one go
+        sales_data = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
+        to_display = pd.DataFrame(sales_data)
         
         st.write("Data from database table tbl_wh_transfer_out:")
         db_df = data["transfer_out_df"]
@@ -726,5 +751,9 @@ elif st.session_state.page == "upload":
         st.write("Recently uploaded data:")
         recent_df = data["recent_transfer_out_df"]
         st.dataframe(recent_df)
+        
+        st.write("TO PDF output:")
+        display_df = to_display
+        st.dataframe(display_df)
         pass
     
