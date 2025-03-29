@@ -337,17 +337,14 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
             t2.color, 
             t2.polish, 
             t2.size, 
-            SUM(t1.sold_qty) AS Qty
+            SUM(t1.sold_qty) AS Qty,
+            sum(t1.bill_amount) as MRP_Amount
         FROM tbl_wh_sales_returns t1
         LEFT JOIN tbl_item_data t2 
             ON t1.combination_id = t2.combination_id
         GROUP BY 
             t1.design_no, 
-            t1.outlet_name, 
-            t2.item_name, 
-            t2.color, 
-            t2.polish, 
-            t2.size;
+            t1.outlet_name;
         """
         cursor.execute(sales_query)
         sales_data = cursor.fetchall()
