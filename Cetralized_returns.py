@@ -298,29 +298,20 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
         # Connect to the database
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
-        
+
         # Get existing store data
         cursor.execute("SELECT store_name, max_sr, max_to FROM tbl_wh_store_config")
         existing_data = {row[0]: {'max_sr': row[1], 'max_to': row[2]} for row in cursor.fetchall()}
-        existing_lower = {row[0].lower(): row[0] for row in cursor.fetchall()}
-        
+
         # Prepare update statements
         for store in set(max_sr_dict) | set(max_to_dict):
             new_sr = max_sr_dict.get(store)
             new_to = max_to_dict.get(store)
-            
-            # Check if store exists (case-insensitive)
-            store_exists = False
-            existing_store = None
-            
-            # Check if store exists with any case
-            for db_store in existing_data:
-                if db_store.lower() == store.lower():
-                    store_exists = True
-                    existing_store = db_store
-                    break
-            
-            if store_exists:
+
+            # Case-insensitive store check
+            existing_store = next((db_store for db_store in existing_data if db_store.lower() == store.lower()), None)
+
+            if existing_store:
                 update_query = """
                 UPDATE tbl_wh_store_config 
                 SET max_sr = %s, max_to = %s
@@ -328,45 +319,56 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
                 """
                 cursor.execute(update_query, (new_sr, new_to, existing_store))
             else:
-                # If store doesn't exist, insert it
                 insert_query = """
                 INSERT INTO tbl_wh_store_config (store_name, max_sr, max_to)
                 VALUES (%s, %s, %s)
                 """
                 cursor.execute(insert_query, (store, new_sr, new_to))
-        
-        # Commit and close
+
+        # Commit updates
         conn.commit()
 
-        cursor.execute("""
-            SELECT 
-                t1.design_no, 
-                t1.outlet_name, 
-                t2.item_name, 
-                t2.color, 
-                t2.polish, 
-                t2.size, 
-                SUM(t1.sold_qty) AS Qty
-            FROM tbl_wh_sales_returns t1
-            LEFT JOIN tbl_item_data t2 
-                ON t1.combination_id = t2.combination_id
-            GROUP BY 
-                t1.design_no, 
-                t1.outlet_name;
-        """)
+        # Fetch sales data
+        sales_query = """
+        SELECT 
+            t1.design_no, 
+            t1.outlet_name, 
+            t2.item_name, 
+            t2.color, 
+            t2.polish, 
+            t2.size, 
+            SUM(t1.sold_qty) AS Qty
+        FROM tbl_wh_sales_returns t1
+        LEFT JOIN tbl_item_data t2 
+            ON t1.combination_id = t2.combination_id
+        GROUP BY 
+            t1.design_no, 
+            t1.outlet_name, 
+            t2.item_name, 
+            t2.color, 
+            t2.polish, 
+            t2.size;
+        """
+        cursor.execute(sales_query)
         sales_data = cursor.fetchall()
+
+        # Get column names
+        column_names = [desc[0] for desc in cursor.description]
 
         # Close connection
         cursor.close()
         conn.close()
-        
-        print("Store max SR and TO numbers updated successfully!")
+
+        # Convert to DataFrame and return
+        df_sales = pd.DataFrame(sales_data, columns=column_names)
+
+        print("✅ Store max SR and TO numbers updated successfully!")
         st.success("✅ Store max SR and TO numbers updated successfully!")
 
-        return sales_data  # Return fetched data if needed
+        return df_sales  # Return DataFrame
 
     except mysql.connector.Error as err:
-        print("Error:", err)
+        print("❌ Error:", err)
         st.error(f"❌ Error updating store config: {err}")
         return None
 
