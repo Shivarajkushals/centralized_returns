@@ -741,7 +741,7 @@ elif st.session_state.page == "upload":
     
     elif page == "TO page":
         data = fetch_all_data()  # Fetch all required data in one go
-        sales_data = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
+        sales_data = update_store_max_sr_to(DB_CONFIG, {}, {})
         to_display = pd.DataFrame(sales_data)
         
         st.write("Data from database table tbl_wh_transfer_out:")
