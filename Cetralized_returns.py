@@ -4,6 +4,8 @@ import mysql.connector
 import requests
 import json
 from datetime import datetime
+import os
+from fpdf import FPDF
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
@@ -424,6 +426,54 @@ def expand_design_numbers(df):
             new_rows.append(new_row.to_dict())
     
     return pd.DataFrame(new_rows)
+
+def generate_pdfs_from_df(df, output_folder="pdf_reports"):
+    # Ensure output directory exists
+    os.makedirs(output_folder, exist_ok=True)
+
+    # Get unique outlets
+    unique_outlets = df['outlet_name'].unique()
+    pdf_files = []  # Store file paths for download
+
+    for outlet in unique_outlets:
+        # Filter data for the current outlet
+        outlet_df = df[df['outlet_name'] == outlet]
+
+        # Create PDF
+        pdf = FPDF()
+        pdf.set_auto_page_break(auto=True, margin=10)
+        pdf.add_page()
+        pdf.set_font("Arial", size=12)
+
+        # Add title
+        pdf.cell(200, 10, txt=f"Sales Report for {outlet}", ln=True, align="C")
+
+        # Add table headers
+        pdf.ln(10)
+        col_widths = [30, 30, 30, 30, 30, 30, 20]  # Adjust column widths
+        headers = ["Design No", "Outlet Name", "Item Name", "Color", "Polish", "Size", "Qty"]
+        
+        for i, header in enumerate(headers):
+            pdf.cell(col_widths[i], 10, header, border=1, align="C")
+        pdf.ln()
+
+        # Add table data
+        for _, row in outlet_df.iterrows():
+            pdf.cell(col_widths[0], 10, str(row['design_no']), border=1, align="C")
+            pdf.cell(col_widths[1], 10, str(row['outlet_name']), border=1, align="C")
+            pdf.cell(col_widths[2], 10, str(row['item_name']), border=1, align="C")
+            pdf.cell(col_widths[3], 10, str(row['color']), border=1, align="C")
+            pdf.cell(col_widths[4], 10, str(row['polish']), border=1, align="C")
+            pdf.cell(col_widths[5], 10, str(row['size']), border=1, align="C")
+            pdf.cell(col_widths[6], 10, str(row['Qty']), border=1, align="C")
+            pdf.ln()
+
+        # Save PDF with outlet name
+        pdf_filename = os.path.join(output_folder, f"{outlet}.pdf")
+        pdf.output(pdf_filename)
+        pdf_files.append(pdf_filename)  # Store file path for download
+
+    return pdf_files  # Return list of generated PDFs
 # ---------------------------- PAGE 1: LOGIN ---------------------------------
 if st.session_state.page == "login":
     with main_container.container():
@@ -754,5 +804,21 @@ elif st.session_state.page == "upload":
         st.write("TO PDF output:")
         display_df = to_display
         st.dataframe(display_df)
+        
+        if isinstance(sales_data, pd.DataFrame) and not sales_data.empty:
+            pdf_files = generate_pdfs_from_df(sales_data)
+        
+            # Streamlit UI for downloading PDFs
+            st.header("Download Sales Reports")
+            for pdf_file in pdf_files:
+                outlet_name = os.path.basename(pdf_file).replace(".pdf", "")  # Extract outlet name
+                with open(pdf_file, "rb") as f:
+                    st.download_button(
+                        label=f"📥 Download {outlet_name}.pdf",
+                        data=f,
+                        file_name=f"{outlet_name}.pdf",
+                        mime="application/pdf"
+                    )
+        else:
+            st.error("❌ No data available to generate PDFs.")
         pass
-    
