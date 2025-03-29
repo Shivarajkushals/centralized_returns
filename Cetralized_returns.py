@@ -351,45 +351,27 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
 def calculate_qty(design_number):
     return str(design_number).count("-") + 1 if pd.notna(design_number) else 1
 
-# Function to insert data into tbl_wh_sales_returns
-def insert_sales_returns(sr_df):
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
-        
-        columns = ", ".join(sr_df.columns)
-        placeholders = ", ".join(["%s"] * len(sr_df.columns))
-        
-        query = f"INSERT INTO tbl_wh_sales_returns ({columns}) VALUES ({placeholders})"
-        
-        values = [tuple(row) for row in sr_df.to_numpy()]
-        
-        cursor.executemany(query, values)
-        conn.commit()
-        
-        rows_affected = cursor.rowcount
-        
-        cursor.close()
-        conn.close()
-        
-        return rows_affected
-        
-    except Exception as e:
-        st.error(f"❌ Error inserting data into tbl_wh_sales_returns: {e}")
-        return 0
+def insert_data(df, table_name):
+    """
+    Inserts data from a DataFrame into a specified MySQL table.
 
-# Function to insert data into tbl_wh_transfer_out
-def insert_transfer_out(to_df):
+    Parameters:
+        df (pd.DataFrame): The DataFrame containing data to insert.
+        table_name (str): The name of the target table.
+
+    Returns:
+        int: Number of rows inserted, or 0 if an error occurs.
+    """
     try:
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
         
-        columns = ", ".join([f"{col}" for col in to_df.columns])
-        placeholders = ", ".join(["%s"] * len(to_df.columns))
+        columns = ", ".join(df.columns)
+        placeholders = ", ".join(["%s"] * len(df.columns))
         
-        query = f"INSERT INTO tbl_wh_transfer_out ({columns}) VALUES ({placeholders})"
+        query = f"INSERT INTO {table_name} ({columns}) VALUES ({placeholders})"
         
-        values = [tuple(row) for row in to_df.to_numpy()]
+        values = [tuple(row) for row in df.to_numpy()]
         
         cursor.executemany(query, values)
         conn.commit()
@@ -402,7 +384,7 @@ def insert_transfer_out(to_df):
         return rows_affected
         
     except Exception as e:
-        st.error(f"❌ Error inserting data into tbl_wh_transfer_out: {e}")
+        st.error(f"❌ Error inserting data into {table_name}: {e}")
         return 0
 
 # Function to split and expand rows
@@ -708,12 +690,12 @@ elif st.session_state.page == "upload":
                     to_df["branch_recived"] = "Banglore_WH" 
                     to_df["transfer_out_date"] = current_time
             
-                    sr_inserted = insert_sales_returns(sr_df)
-                    to_inserted = insert_transfer_out(to_df)
+                    rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
+                    rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
                     sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
             
-                    st.success(f"✅ Inserted {sr_inserted} records into tbl_wh_sales_returns.")
-                    st.success(f"✅ Inserted {to_inserted} records into tbl_wh_transfer_out.")
+                    st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
+                    st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
             
                     csv_uploaded = uploaded_df.to_csv(index=False).encode("utf-8")
                     st.download_button("Download Updated CSV", csv_uploaded, "updated_data.csv", "text/csv")
