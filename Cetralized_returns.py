@@ -340,13 +340,21 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
             t2.polish, 
             t2.size, 
             SUM(t1.sold_qty) AS Qty,
-            sum(t1.bill_amount) as MRP_Amount
+            sum(t1.bill_amount) as MRP_Amount,
+            t3.address,
+            t4.transfer_out_date,
+            t4.transfer_out_no
         FROM tbl_wh_sales_returns t1
         LEFT JOIN tbl_item_data t2 
             ON t1.combination_id = t2.combination_id
+        LEFT JOIN tbl_wh_store_config t3
+        	ON t1. outlet_name = t3.store_name
+        LEFT JOIN tbl_wh_transfer_out t4
+        	ON t1.id = t4.sr_id
         GROUP BY 
             t1.design_no, 
-            t1.outlet_name;
+            t1.outlet_name
+
         """
         cursor.execute(sales_query)
         sales_data = cursor.fetchall()
@@ -428,52 +436,233 @@ def expand_design_numbers(df):
     return pd.DataFrame(new_rows)
 
 def generate_pdfs_from_df(df, output_folder="pdf_reports"):
-    # Ensure output directory exists
     os.makedirs(output_folder, exist_ok=True)
+    
+    # Group by outlet_name and ensure each has its corresponding address
+    outlet_groups = df.groupby(['outlet_name', 'address', "transfer_out_date", "transfer_out_no"])
 
-    # Get unique outlets
-    unique_outlets = df['outlet_name'].unique()
-    pdf_files = []  # Store file paths for download
+    pdf_files = []
 
-    for outlet in unique_outlets:
-        # Filter data for the current outlet
-        outlet_df = df[df['outlet_name'] == outlet]
-
-        # Create PDF
+    for (outlet, address, date, no), outlet_df in outlet_groups:
         pdf = FPDF()
-        pdf.set_auto_page_break(auto=True, margin=10)
+        pdf.set_auto_page_break(auto=True, margin=15)
         pdf.add_page()
-        pdf.set_font("Arial", size=12)
 
-        # Add title
-        pdf.cell(200, 10, txt=f"Sales Report for {outlet}", ln=True, align="C")
+        def add_page_header():
+            """ Function to add the header section for each page """
+            pdf.set_xy(10, 1)
+            pdf.set_font("Helvetica", "B", 12)
+            pdf.cell(200, 8, "DELIVERY CHALLAN / STOCK TRANSFER OUT", ln=True, align="C")
 
-        # Add table headers
-        pdf.ln(10)
-        col_widths = [30, 30, 30, 30, 30, 30, 20]  # Adjust column widths
-        headers = ["Design No", "Item Name", "Color", "Polish", "Size", "Qty", "MRP Amount"]
+            pdf.set_xy(80, 6.5)
+            pdf.set_font("Helvetica", "B", 10)
+            pdf.cell(0, 8, "KUSHAL'S RETAIL PVT. LTD.", ln=False)
+
+            pdf.set_xy(170, 6.5)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.cell(0, 8, "ORIGINAL", ln=True)
+
+            pdf.rect(1, 13, 208, 16)  # Rectangle for company info
+            pdf.ln(5)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_xy(6, 22.8)  
+            pdf.cell(0, 6, f"From: {outlet}", ln=True)
+
+            pdf.set_font("Helvetica", "", 8.5)
+            pdf.set_xy(30, 15)  
+            pdf.cell(0, 6, f"{address}", ln=True)  
+
+            pdf.set_xy(92.5, 18.8)  
+            pdf.cell(0, 6, "Tel: 8035276599", ln=True)  
+
+            pdf.set_xy(85, 22.8)  
+            pdf.cell(0, 6, "GSTIN: 29AAHCK5046J1Z6", ln=True)  
+
+            pdf.rect(1, 29, 208, 26.5)  # Rectangle for destination info
+
+            pdf.ln(18)
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_xy(6, 30)  
+            pdf.cell(0, 6, "To: KUSHAL'S RETAIL PVT.LTD.       BLR WAREHOUSE - WH", ln=True)
+            
+            pdf.set_font("Helvetica", "", 8.5)
+            pdf.set_xy(15, 36)  
+            pdf.cell(0, 6, "No 19/3,1st and 2nd Floor, Bikasipura Main Road,", ln=True)  
+
+            pdf.set_xy(15, 40)  
+            pdf.cell(0, 6, "9th MAIN,3rd Block, Jayanagar, , BANGALORE -560011", ln=True)  
+
+            pdf.set_xy(15, 44)  
+            pdf.cell(0, 6, "Tel: 8035276599", ln=True)  
+
+            pdf.set_xy(15, 48)  
+            pdf.cell(0, 6, "GSTIN: 29AAHCK5046J1Z6", ln=True) 
+            
+            pdf.set_font("Helvetica", "B", 9)
+            pdf.set_xy(90, 50)  
+            pdf.cell(0, 6, "Karnataka", ln=True) 
+            
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_xy(120, 35)  
+            pdf.cell(0, 6, f"Stock Trans ref No :       {no}", ln=True) 
+
+            pdf.set_font("Helvetica", "", 9)
+            pdf.set_xy(120, 40)  
+            pdf.cell(0, 6, f"Date :                              {date}", ln=True) 
+            
+            pdf.rect(1, 55.5, 208, 237)  # Table border
+            add_table_header()
+
+        def add_table_header():
+            """ Function to add table headers """
+            pdf.set_xy(5, 57)
+            pdf.set_font("Helvetica", "B", 9)
+
+            # Define header positions
+            header_positions = [3, 17, 72, 85, 105, 130, 150, 168, 180]
+            headers = ["Sr No", "Item Description", "HSN", "Design No", "Color", "Polish", "Size", "Qty", "MRP Amount"]
+
+            for x_pos, header in zip(header_positions, headers):
+                pdf.set_x(x_pos)  
+                pdf.cell(0, 6, header, align="L")
+            pdf.ln(5)
+
+        add_page_header()
         
-        for i, header in enumerate(headers):
-            pdf.cell(col_widths[i], 10, header, border=1, align="C")
-        pdf.ln()
+        # **Header separator**
+        pdf.rect(1, 55.5, 208, 6.8)  # (x, y, width, height)
 
-        # Add table data
-        for _, row in outlet_df.iterrows():
-            pdf.cell(col_widths[0], 10, str(row['design_no']), border=1, align="C")
-            pdf.cell(col_widths[1], 10, str(row['item_name']), border=1, align="C")
-            pdf.cell(col_widths[2], 10, str(row['color']), border=1, align="C")
-            pdf.cell(col_widths[3], 10, str(row['polish']), border=1, align="C")
-            pdf.cell(col_widths[4], 10, str(row['size']), border=1, align="C")
-            pdf.cell(col_widths[5], 10, str(row['Qty']), border=1, align="C")
-            pdf.cell(col_widths[6], 10, str(row['MRP_Amount']), border=1, align="C")
-            pdf.ln()
+        pdf.set_font("Helvetica", "", 9.2)
+        row_spacing = 6
+        outlet_df = outlet_df.reset_index(drop=True)
 
-        # Save PDF with outlet name
+        total_qty = 0
+        total_mrp = 0.0
+
+        for i, row in outlet_df.iterrows():
+            if pdf.get_y() > 250:  # Ensure enough space for totals
+                pdf.add_page()
+                add_page_header()
+
+            pdf.set_x(3)
+            pdf.cell(14, row_spacing, str(i + 1), align="L")  # Sr No
+
+            pdf.set_x(17)
+            pdf.cell(55, row_spacing, str(row['item_name']), align="L")  # Item Description
+
+            pdf.set_x(72)
+            pdf.cell(13, row_spacing, "7117", align="L")  # HSN (Constant Value)
+
+            pdf.set_x(85)
+            pdf.cell(20, row_spacing, str(row['design_no']), align="L")  # Design No
+
+            pdf.set_x(105)
+            pdf.cell(25, row_spacing, str(row['color']), align="L")  # Color
+
+            pdf.set_x(130)
+            pdf.cell(20, row_spacing, str(row['polish']), align="L")  # Polish
+
+            pdf.set_x(150)
+            pdf.cell(18, row_spacing, str(row['size']), align="L")  # Size
+
+            pdf.set_x(166)
+            pdf.cell(12, row_spacing, str(row['Qty']), align="C")  # Qty
+            total_qty += int(row['Qty'])
+
+            pdf.set_x(172)
+            pdf.cell(28, row_spacing, str(row['MRP_Amount']), align="R")  # MRP Amount
+            total_mrp += float(row['MRP_Amount'])
+
+            pdf.ln(row_spacing)
+
+# =============================================================================
+#         # Ensure enough space for totals
+#         if pdf.get_y() > 250:
+#             pdf.add_page()
+#             add_page_header()
+# =============================================================================
+
+        # Ensure totals are positioned exactly 40 units from the bottom
+        y_position_for_totals = 287 - 45  # Page height is 297, keep totals at 40 from bottom
+        
+        if pdf.get_y() > y_position_for_totals:
+            pdf.add_page()
+            add_page_header()
+        
+        pdf.rect(1, 240, 208, 52.4)  # Box for totals and notes
+        
+        # Move to the correct position for totals
+        pdf.set_xy(3, y_position_for_totals)
+        pdf.set_font("Helvetica", "B", 10)
+        
+        # Draw Total Qty & Total Amount on the same line
+        pdf.cell(130, row_spacing, "Total Qty", align="R")
+        pdf.cell(12, row_spacing, str(total_qty), align="C")  # Total Quantity
+        
+        # Set X position for Total Amount
+        pdf.set_x(150)  
+        pdf.cell(30, row_spacing, "Total Amount", align="R")
+        pdf.cell(20, row_spacing, str(total_mrp), align="R")  # Total MRP Amount
+        
+        pdf.ln(8)  # Move down for HSN
+        
+        # Set position for HSN
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(10, 242  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "HSN", align="L")
+        
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(10, 250  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "7117", align="L")
+        
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(35, 242  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "GST", align="L")
+
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(35, 250  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "0", align="L")
+
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(60, 242  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "Qty", align="L")
+
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(60, 250  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "A", align="L")
+        
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(80, 242  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "Amount", align="L")
+
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(80, 250  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "B", align="L")
+        
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(156, 250)  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "Discount", align="L")
+
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(187.2, 250  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "C", align="L")
+        
+        pdf.ln(10)  # Move down after HSN
+
+
+        # Ensure the note is positioned at the bottom
+        pdf.set_xy(60, 287 - 11.4)  # 10 units from the bottom of the page
+        pdf.set_font("Helvetica", "", 9)
+        pdf.cell(0, 6, "Note: This is a system-generated document. No signature is required.", align="L")
+        
+
+
+
         pdf_filename = os.path.join(output_folder, f"{outlet}.pdf")
         pdf.output(pdf_filename)
-        pdf_files.append(pdf_filename)  # Store file path for download
+        pdf_files.append(pdf_filename)
 
-    return pdf_files  # Return list of generated PDFs
+    return pdf_files
 # ---------------------------- PAGE 1: LOGIN ---------------------------------
 if st.session_state.page == "login":
     with main_container.container():
