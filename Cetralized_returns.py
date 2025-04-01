@@ -6,7 +6,6 @@ import json
 from datetime import datetime
 import os
 from fpdf import FPDF
-import base64
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
@@ -359,23 +358,6 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
         """
         cursor.execute(sales_query)
         sales_data = cursor.fetchall()
-        
-        # Fetch sales data
-        sales_query1 = """
-        SELECT 
-            t1.design_no AS Design,  
-            t2.item_name AS Prodcut_name, 
-            SUM(t1.sold_qty) AS Qty,
-            sum(t1.bill_amount) as MRP_Amount,
-            t1.sr_no
-        FROM tbl_wh_sales_returns t1
-        LEFT JOIN tbl_item_data t2 
-            ON t1.combination_id = t2.combination_id
-        GROUP BY 
-            t1.design_no
-        """
-        cursor.execute(sales_query1)
-        sales_data1 = cursor.fetchall()
 
         # Get column names
         column_names = [desc[0] for desc in cursor.description]
@@ -408,202 +390,6 @@ def call_update_sales_returns():
         st.success("✅ Stored procedure 'UpdateSalesReturns' executed successfully.")
     except Exception as e:
         st.error(f"❌ Error calling stored procedure: {e}")
-
-def generate_sales_return_pdfs(sales_data1):
-    """
-    Generate receipt-sized sales return PDFs for each design number in the sales data.
-    
-    Args:
-        sales_data (pd.DataFrame): DataFrame containing sales return data
-    
-    Returns:
-        dict: Dictionary mapping design numbers to PDF downloads
-    """
-    if sales_data is None or sales_data.empty:
-        st.error("No sales data available to generate PDFs.")
-        return {}
-    
-    pdf_downloads = {}
-    
-    # Group the data by Design number
-    grouped_data = sales_data.groupby('Design')
-    
-    for design_no, group in grouped_data:
-        try:
-            # Create PDF with receipt dimensions (80mm width is common for receipts)
-            # 80mm = approx 3.15 inches = 226.8 points (1 inch = 72 points in FPDF)
-            pdf = FPDF(orientation='P', unit='mm', format=(80, 200))  # 80mm width, variable height
-            pdf.set_auto_page_break(True, margin=10)
-            pdf.add_page()
-            pdf.set_font("Arial", size=8)  # Smaller font for receipt
-            
-            # Set margins for receipt
-            pdf.set_margins(5, 5, 5)  # left, top, right margins in mm
-            
-            # Header - smaller for receipt
-            pdf.set_font("Arial", 'B', 10)
-            pdf.cell(0, 5, "KUSHAL'S FASHION JEWELLERY", ln=True, align='C')
-            pdf.set_font("Arial", size=7)
-            pdf.cell(0, 3, "NO. 6, SHAMBU TOWERS, D.V.G ROAD", ln=True, align='C')
-            pdf.cell(0, 3, "GANDHI BAZAR, BASAVANAGUDI", ln=True, align='C')
-            pdf.cell(0, 3, "BANGALORE, KARNATAKA", ln=True, align='C')
-            pdf.cell(0, 3, "PH No. : 08042108611", ln=True, align='C')
-            pdf.cell(0, 3, "www.kushals.com", ln=True, align='C')
-            
-            # Sales Return Title
-            pdf.set_font("Arial", 'B', 9)
-            pdf.cell(0, 5, "SALES RETURN", ln=True, align='C')
-            
-            # SR Bill No and Date
-            current_date = datetime.now().strftime("%d/%m/%Y")
-            current_time = datetime.now().strftime("%H:%M:%S")
-            sr_bill_no = f"BGR{design_no}{datetime.now().strftime('%y-%y')}"
-            
-            pdf.set_font("Arial", size=7)
-            pdf.cell(40, 3, f"SR Bill No: {sr_bill_no}", 0, 0)
-            pdf.cell(30, 3, f"Date: {current_date}", 0, 1, 'R')
-            pdf.cell(0, 3, f"Time: {current_time}", 0, 1, 'R')
-            
-            # Divider
-            pdf.cell(0, 1, "-" * 1200, ln=True, align='C')
-            
-            # Table Header - compact for receipt
-            pdf.set_font("Arial", 'B', 7)
-            pdf.cell(5, 4, "#", 0, 0)
-            pdf.cell(25, 4, "PRODUCT NAME", 0, 0)
-            pdf.cell(15, 4, "ARTICLE", 0, 0)
-            pdf.cell(7, 4, "Qty", 0, 0)
-            pdf.cell(10, 4, "Rate", 0, 0)
-            pdf.cell(13, 4, "Amount", 0, 1)
-            pdf.cell(5, 3, "", 0, 0)
-            pdf.cell(25, 3, "HSN", 0, 0)
-            pdf.cell(40, 3, "DESIGN", 0, 1)
-            
-            # Divider
-            pdf.cell(0, 1, "-" * 120, ln=True, align='C')
-            
-            # Table Data
-            total_amount = 0
-            for idx, row in group.iterrows():
-                pdf.set_font("Arial", size=7)
-                
-                # Product details
-                pdf.cell(5, 4, str(idx + 1), 0, 0)
-                pdf.cell(25, 4, str(row['Prodcut_name']), 0, 0)
-                
-                # Article number (using sr_no or creating a placeholder)
-                article_no = str(row.get('sr_no', f"0000010{row['Design']}"))
-                pdf.cell(15, 4, article_no, 0, 0)
-                
-                # Quantity, Rate, Amount
-                qty = int(row['Qty'])
-                amount = float(row['MRP_Amount'])
-                rate = amount / qty if qty > 0 else 0
-                
-                pdf.cell(7, 4, str(qty), 0, 0)
-                pdf.cell(10, 4, f"{rate:.2f}", 0, 0)
-                pdf.cell(13, 4, f"{amount:.2f}", 0, 1)
-                
-                # HSN and Design
-                pdf.cell(5, 3, "", 0, 0)
-                pdf.cell(25, 3, "7117", 0, 0)  # Placeholder HSN code
-                pdf.cell(40, 3, str(row['Design']), 0, 1)
-                
-                total_amount += amount
-            
-            # Divider
-            pdf.cell(0, 1, "-" * 120, ln=True, align='C')
-            
-            # Total
-            pdf.set_font("Arial", 'B', 7)
-            pdf.cell(52, 4, "TOTAL", 0, 0)
-            pdf.cell(7, 4, str(group['Qty'].sum()), 0, 0)
-            pdf.cell(13, 4, f"{total_amount:.2f}", 0, 1, 'R')
-            
-            # Divider
-            pdf.cell(0, 1, "-" * 120, ln=True, align='C')
-            
-            # Tax and Net Amount
-            tax_amount = total_amount * 0.03  # Assuming 3% tax
-            cgst = tax_amount / 2
-            sgst = tax_amount / 2
-            
-            pdf.cell(52, 4, "TAX AMT :", 0, 0)
-            pdf.cell(18, 4, f"{tax_amount:.2f}", 0, 1, 'R')
-            
-            pdf.set_font("Arial", 'B', 7)
-            pdf.cell(52, 4, "NET AMT :", 0, 0)
-            pdf.cell(18, 4, f"{total_amount:.2f}", 0, 1, 'R')
-            
-            # Divider
-            pdf.cell(0, 1, "-" * 120, ln=True, align='C')
-            
-            # CGST and SGST
-            pdf.set_font("Arial", size=7)
-            pdf.cell(15, 4, "CGST%", 0, 0)
-            pdf.cell(15, 4, "CGST AMT", 0, 0)
-            pdf.cell(15, 4, "SGST%", 0, 0)
-            pdf.cell(15, 4, "SGST AMT", 0, 1)
-            
-            pdf.cell(15, 4, "1.50", 0, 0)
-            pdf.cell(15, 4, f"{cgst:.2f}", 0, 0)
-            pdf.cell(15, 4, "1.50", 0, 0)
-            pdf.cell(15, 4, f"{sgst:.2f}", 0, 1)
-            
-            # GSTIN
-            pdf.cell(0, 4, "GSTIN # : 29AAHCK5046J1Z6", 0, 1)
-            
-            # Terms and Conditions
-            pdf.set_font("Arial", 'B', 7)
-            pdf.cell(0, 4, "Terms And Conditions", 0, 1)
-            pdf.set_font("Arial", size=6)
-            pdf.cell(0, 3, "1. No Exchange, No Gaurantee, No Refund", 0, 1)
-            pdf.cell(0, 3, "2. Prices inclusive of taxes, subject to statutory terms", 0, 1)
-            pdf.cell(0, 3, "3. All disputes are subject to Bangalore jurisdiction", 0, 1)
-            
-            # Generate PDF
-            pdf_output = f"sales_return_{design_no}.pdf"
-            pdf.output(pdf_output)
-            
-            # Create download button
-            with open(pdf_output, "rb") as f:
-                pdf_bytes = f.read()
-            
-            b64_pdf = base64.b64encode(pdf_bytes).decode('utf-8')
-            download_link = f'<a href="data:application/pdf;base64,{b64_pdf}" download="{pdf_output}">Download PDF for Design {design_no}</a>'
-            
-            pdf_downloads[design_no] = download_link
-            
-            # Clean up temporary file
-            os.remove(pdf_output)
-            
-        except Exception as e:
-            st.error(f"Error generating PDF for Design {design_no}: {str(e)}")
-    
-    return pdf_downloads
-
-def display_sales_return_pdfs(sales_data1):
-    st.header("Generated Sales Return PDFs")
-    
-    if sales_data is None or sales_data.empty:
-        st.warning("No sales data available to generate PDFs.")
-        return
-    
-    # Debug information
-    st.write(f"Number of records in sales_data: {len(sales_data)}")
-    st.write(f"Number of unique design numbers: {sales_data['Design'].nunique()}")
-    
-    # Generate PDFs
-    pdf_downloads = generate_sales_return_pdfs(sales_data)
-    
-    if not pdf_downloads:
-        st.warning("No PDFs were generated.")
-        return
-    
-    # Display download links
-    st.write("Download Sales Return PDFs:")
-    for design_no, download_link in pdf_downloads.items():
-        st.markdown(download_link, unsafe_allow_html=True)
 
 # Function to calculate Qty based on "-" in Design Numbers
 def calculate_qty(design_number):
@@ -1216,11 +1002,6 @@ elif st.session_state.page == "upload":
         st.write("Recently uploaded data:")
         recent_df = data["recent_sales_returns_df"]
         st.dataframe(recent_df)
-        
-        sales_data1 = update_store_max_sr_to(DB_CONFIG, {}, {})
-        
-        if sales_data1 is not None and not sales_data1.empty:
-            display_sales_return_pdfs(sales_data1)
         pass
     
     elif page == "TO page":
