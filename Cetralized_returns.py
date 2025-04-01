@@ -551,6 +551,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         total_qty = 0
         total_mrp = 0.0
         total_dis = 0.0
+        net_total = 0.0
 
         for i, row in outlet_df.iterrows():
             if pdf.get_y() > 250:  # Ensure enough space for totals
@@ -590,6 +591,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
             pdf.ln(row_spacing)
             
             total_dis += float(row['bill_discount'])
+            net_total = total_mrp + total_dis
 # =============================================================================
 #         # Ensure enough space for totals
 #         if pdf.get_y() > 250:
@@ -661,6 +663,14 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_xy(187.2, 250  )  # Adjust X position as needed
         pdf.cell(0, row_spacing, str(total_dis), align="L")
+        
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(156, 256)  # Adjust X position as needed
+        pdf.cell(0, row_spacing, "Net Total", align="L")
+
+        pdf.set_font("Helvetica", "B", 9)
+        pdf.set_xy(187.2, 256  )  # Adjust X position as needed
+        pdf.cell(0, row_spacing, str(net_total), align="L")
         
         pdf.ln(10)  # Move down after HSN
 
