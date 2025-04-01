@@ -343,7 +343,8 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
             sum(t1.bill_amount) as MRP_Amount,
             t3.address,
             t4.transfer_out_date,
-            t4.transfer_out_no
+            t4.transfer_out_no,
+            sum(t1.discount_amount) AS bill_discount
         FROM tbl_wh_sales_returns t1
         LEFT JOIN tbl_item_data t2 
             ON t1.combination_id = t2.combination_id
@@ -354,7 +355,6 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
         GROUP BY 
             t1.design_no, 
             t1.outlet_name
-
         """
         cursor.execute(sales_query)
         sales_data = cursor.fetchall()
@@ -378,6 +378,18 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
         print("❌ Error:", err)
         st.error(f"❌ Error updating store config: {err}")
         return None
+
+def call_update_sales_returns():
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.callproc("UpdateSalesReturns")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        st.success("✅ Stored procedure 'UpdateSalesReturns' executed successfully.")
+    except Exception as e:
+        st.error(f"❌ Error calling stored procedure: {e}")
 
 # Function to calculate Qty based on "-" in Design Numbers
 def calculate_qty(design_number):
@@ -538,6 +550,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
 
         total_qty = 0
         total_mrp = 0.0
+        total_dis = 0.0
 
         for i, row in outlet_df.iterrows():
             if pdf.get_y() > 250:  # Ensure enough space for totals
@@ -573,8 +586,10 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
             pdf.cell(28, row_spacing, str(row['MRP_Amount']), align="R")  # MRP Amount
             total_mrp += float(row['MRP_Amount'])
 
-            pdf.ln(row_spacing)
 
+            pdf.ln(row_spacing)
+            
+            total_dis += float(row['bill_discount'])
 # =============================================================================
 #         # Ensure enough space for totals
 #         if pdf.get_y() > 250:
@@ -645,7 +660,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
 
         pdf.set_font("Helvetica", "B", 9)
         pdf.set_xy(187.2, 250  )  # Adjust X position as needed
-        pdf.cell(0, row_spacing, "C", align="L")
+        pdf.cell(0, row_spacing, str(total_dis), align="L")
         
         pdf.ln(10)  # Move down after HSN
 
@@ -663,6 +678,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         pdf_files.append(pdf_filename)
 
     return pdf_files
+
 # ---------------------------- PAGE 1: LOGIN ---------------------------------
 if st.session_state.page == "login":
     with main_container.container():
@@ -953,6 +969,7 @@ elif st.session_state.page == "upload":
             
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
+                    call_update_sales_returns()
                     sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
             
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
