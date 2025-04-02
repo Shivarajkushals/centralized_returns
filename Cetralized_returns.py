@@ -796,7 +796,7 @@ def generate_sales_return_pdfs(df_sales_2):
                 
                 # Product details
                 pdf.cell(5, 4, str(idx + 1), 0, 0)
-                pdf.cell(25, 4, str(row['Prodcut_name']), 0, 0)
+                pdf.cell(25, 4, str(row['Product_name']), 0, 0)
                 
                 # Article number (using sr_no or creating a placeholder)
                 article_no = str(row.get('sr_no', f"0000010{row['Design']}"))
