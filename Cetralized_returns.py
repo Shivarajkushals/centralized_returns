@@ -1291,7 +1291,7 @@ elif st.session_state.page == "upload":
                         select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
                         sum(bill_amount) as net_amount, sum(item_gross) as return_item_amount, sum(discount_amount) as discount_amount,
                         sales_tran_refno, returns_tran_refno,
-                        billno_prefix, customer_state, mobile_number, gst_billno, gstamt, cgst_amt, sgst_amt_ugst_amt, barcode, hsn_sac_code
+                        customer_state, mobile_number, gst_billno, gstamt, cgst_amt, sgst_amt_ugst_amt, barcode, hsn_sac_code
                         from tbl_wh_sales_returns
                         WHERE return_date BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
