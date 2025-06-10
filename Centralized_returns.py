@@ -232,7 +232,6 @@ def check_duplicates(uploaded_df, db_df):
 
 # Function to assign SR numbers and return max SR per store
 def assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping):
-    import pandas as pd
     
     uploaded_df = uploaded_df.copy()
     uploaded_df["sr_no"] = ""
