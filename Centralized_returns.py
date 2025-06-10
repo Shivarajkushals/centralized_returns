@@ -232,38 +232,67 @@ def check_duplicates(uploaded_df, db_df):
 
 # Function to assign SR numbers and return max SR per store
 def assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping):
+    import pandas as pd
+    
     uploaded_df = uploaded_df.copy()
     uploaded_df["sr_no"] = ""
     max_sr_dict = {}
 
-    # Create a mapping of lowercase store names to their original names in the uploaded data
     upload_store_mapping = {store.lower(): store for store in uploaded_df["stores"].unique()}
 
+    # Function to correctly parse date in yyyy/dd/mm format as dd/mm/yyyy
+    def parse_date_custom(date_val):
+        # Convert to string and parse with dayfirst=True to fix swapped day/month
+        date_str = str(date_val)
+        return pd.to_datetime(date_str, dayfirst=True, errors='coerce')
+
+    # Function to get financial year string like "2526"
+    def get_financial_year(date):
+        if pd.isna(date):
+            return "0000"
+        year = date.year
+        if date.month >= 4:
+            start = year % 100
+            end = (year + 1) % 100
+        else:
+            start = (year - 1) % 100
+            end = year % 100
+        return f"{str(start).zfill(2)}{str(end).zfill(2)}"
+
+    # Find global max SR number from sr_dict (ignoring financial year suffix)
+    global_max_sr = 0
+    for sr_num in sr_dict.values():
+        if isinstance(sr_num, str) and sr_num.startswith('SR'):
+            try:
+                global_max_sr = max(global_max_sr, int(sr_num[2:].split('/')[0]))
+            except ValueError:
+                continue
+
+    total_rows = len(uploaded_df)
+    sr_numbers = []
+    for i in range(total_rows):
+        date_val = uploaded_df.iloc[i]["date"]
+        parsed_date = parse_date_custom(date_val)
+        fy = get_financial_year(parsed_date)
+        sr_number = f"SR{str(global_max_sr + i + 1).zfill(3)}/{fy}"
+        sr_numbers.append(sr_number)
+
+    uploaded_df["sr_no"] = sr_numbers
+
     for store_lower in [s.lower() for s in uploaded_df["stores"].unique()]:
-        # Get the original cased store name from the database, or from uploaded data
         original_store = store_case_mapping.get(store_lower, upload_store_mapping.get(store_lower))
-        
-        # Get the matching original cased store name in the uploaded data
         upload_store = upload_store_mapping.get(store_lower)
-        
-        # Determine the last SR number for this store (case-insensitive lookup)
-        last_sr = 0
-        for db_store, sr_num in sr_dict.items():
-            if db_store.lower() == store_lower:
-                last_sr = sr_num
-                break
-                
-        # Assign new SR numbers
+
         store_rows = uploaded_df["stores"].str.lower() == store_lower
-        new_srs = [f"SR{str(last_sr + i + 1).zfill(3)}" for i in range(store_rows.sum())]
-        uploaded_df.loc[store_rows, "sr_no"] = new_srs
-        
-        # Store the max SR for each store (with proper case)
-        max_sr_dict[original_store] = f"SR{str(last_sr + store_rows.sum()).zfill(3)}"
-        
-        # Update the store name in the dataframe to maintain consistent case
+        store_sr_numbers = uploaded_df.loc[store_rows, "sr_no"].tolist()
+
+        if store_sr_numbers:
+            max_sr = max(store_sr_numbers, key=lambda x: int(x.split('/')[0][2:]))  # ignore fy part
+            max_sr_dict[original_store] = max_sr
+
         if original_store and original_store != upload_store:
-            uploaded_df.loc[uploaded_df["stores"].str.lower() == store_lower, "stores"] = original_store
+            uploaded_df.loc[store_rows, "stores"] = original_store
+
 
     return uploaded_df, max_sr_dict
 
@@ -1104,10 +1133,10 @@ elif st.session_state.page == "Config":
     
 # Add this inside your application code after your current page options
 elif st.session_state.page == "upload":    
-    page = st.sidebar.radio("Select Page", ["Upload page", "SR page", "TO page"])  # Added "Config page"
+    page = st.sidebar.radio("Select Page", ["RTV page", "RTO page", "SR page", "TO page"])  # Added "Config page"
     
     # Existing page code remains unchanged
-    if page == "Upload page":
+    if page == "RTV page":
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
         with col2:
             # Streamlit UI
@@ -1237,6 +1266,34 @@ elif st.session_state.page == "upload":
                 else:
                     st.warning("⚠️ No new data to process after removing duplicates.")
         pass
+
+    elif page == "RTO page":
+        col1, col2, col3 = st.columns([1.5, 8, 1.5])
+        with col2:
+            st.title("Upload Excel or CSV File to Generate SR and TO Files")
+
+            uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx", "xls"])
+
+            if uploaded_file is not None:
+                try:
+                    # Read the file based on its extension
+                    if uploaded_file.name.endswith(".csv"):
+                        uploaded_df = pd.read_csv(uploaded_file)
+                    else:
+                        uploaded_df = pd.read_excel(uploaded_file, engine="openpyxl")
+
+                    # Display uploaded data
+                    st.success(" File uploaded successfully!")
+                    st.subheader(" Preview of Uploaded Data")
+                    st.dataframe(uploaded_df.head(), use_container_width=True)
+
+                    # Normalize column names
+                    uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+                    
+                    # You can continue processing from here
+
+                except Exception as e:
+                    st.error(f"❌ Error reading file: {e}")
     
     elif page == "SR page":
         st.subheader("🔍 Filter Sales returns Data")
