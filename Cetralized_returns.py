@@ -145,91 +145,6 @@ def fetch_all_data():
             "next_batch_no": 1
         }
 
-def fetch_all_data1():
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor(dictionary=True)
-
-        # Fetch full table data
-        cursor.execute("SELECT * FROM tbl_wh_sales_returns;")
-        sales_returns_data = cursor.fetchall()
-
-        cursor.execute("SELECT * FROM tbl_wh_transfer_out;")
-        transfer_out_data = cursor.fetchall()
-
-        # # Fetch most recent records based on created_date
-        # cursor.execute("""
-        #     SELECT * FROM tbl_wh_sales_returns 
-        #     WHERE created_date = (SELECT MAX(created_date) FROM tbl_wh_sales_returns);
-        # """)
-        # recent_sales_returns = cursor.fetchall()
-
-        # cursor.execute("""
-        #     SELECT * FROM tbl_wh_transfer_out 
-        #     WHERE created_date = (SELECT MAX(created_date) FROM tbl_wh_transfer_out);
-        # """)
-        # recent_transfer_out = cursor.fetchall()
-
-        # Fetch max SR number per store
-        query = """
-        SELECT store_name, max_sr
-        FROM tbl_wh_store_config
-        GROUP BY store_name;
-        """
-        cursor.execute(query)
-        sr_numbers = {row["store_name"]: int(row["max_sr"][2:]) for row in cursor.fetchall() if row["max_sr"]}
-
-        # Fetch store name mapping (lowercase to original case)
-        cursor.execute("SELECT store_name FROM tbl_wh_store_config;")
-        store_case_mapping = {row["store_name"].lower(): row["store_name"] for row in cursor.fetchall()}
-
-        # Fetch max TO number per store
-        cursor.execute("SELECT store_name, max_to FROM tbl_wh_store_config GROUP BY store_name;")
-        to_numbers = {row["store_name"]: int(row["max_to"][2:]) for row in cursor.fetchall() if row["max_to"]}
-
-        # Fetch max IDs from both tables
-        cursor.execute("SELECT MAX(id) AS max_sr_id FROM tbl_wh_sales_returns;")
-        max_sr_id = cursor.fetchone()["max_sr_id"] or 0
-
-        cursor.execute("SELECT MAX(id) AS max_to_id FROM tbl_wh_transfer_out;")
-        max_to_id = cursor.fetchone()["max_to_id"] or 0
-
-        # Fetch max batch number (whole number only)
-        cursor.execute("SELECT MAX(batch_no) AS max_batch_no FROM tbl_wh_sales_returns;")
-        batch_result = cursor.fetchone()
-        max_batch_no = int(batch_result["max_batch_no"]) if batch_result["max_batch_no"] is not None else 0
-
-        cursor.close()
-        conn.close()
-
-        return {
-            "sales_returns_df": pd.DataFrame(sales_returns_data),
-            "transfer_out_df": pd.DataFrame(transfer_out_data),
-            # "recent_sales_returns_df": pd.DataFrame(recent_sales_returns),
-            # "recent_transfer_out_df": pd.DataFrame(recent_transfer_out),
-            "sr_numbers": sr_numbers,
-            "to_numbers": to_numbers,
-            "max_sr_id": max_sr_id,
-            "max_to_id": max_to_id,
-            "store_case_mapping": store_case_mapping,
-            "next_batch_no": max_batch_no + 1
-        }
-
-    except Exception as e:
-        st.error(f"❌ Error fetching data: {e}")
-        return {
-            "sales_returns_df": pd.DataFrame(),
-            "transfer_out_df": pd.DataFrame(),
-            # "recent_sales_returns_df": pd.DataFrame(),
-            # "recent_transfer_out_df": pd.DataFrame(),
-            "sr_numbers": {},
-            "to_numbers": {},
-            "max_sr_id": 0,
-            "max_to_id": 0,
-            "store_case_mapping": {},
-            "next_batch_no": 1
-        }
-
 # Simple function to filter out inactive stores
 def filter_inactive_stores(uploaded_df):
     try:
@@ -275,7 +190,7 @@ def check_duplicates(uploaded_df, db_df):
         "return_date": "date",
         "outlet_name": "stores",
         "bill_no": "bill no",
-        "combination_id": "combination_id",
+        "design_no": "design numbers",
     }
 
     # Ensure mapped columns exist in both DataFrames
@@ -297,13 +212,13 @@ def check_duplicates(uploaded_df, db_df):
     merged_df = upload_comparison.merge(
         db_comparison,
         how="inner",
-        on=["date", "stores", "bill no", "combination_id"]
+        on=["date", "stores", "bill no", "design numbers"]
     )
 
     # Extract duplicate records from original uploaded_df
     duplicate_indices = upload_comparison[
-        upload_comparison.set_index(["date", "stores", "bill no", "combination_id"]).index.isin(
-            merged_df.set_index(["date", "stores", "bill no", "combination_id"]).index
+        upload_comparison.set_index(["date", "stores", "bill no", "design numbers"]).index.isin(
+            merged_df.set_index(["date", "stores", "bill no", "design numbers"]).index
         )
     ].index
 
@@ -317,66 +232,38 @@ def check_duplicates(uploaded_df, db_df):
 
 # Function to assign SR numbers and return max SR per store
 def assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping):
-    
     uploaded_df = uploaded_df.copy()
     uploaded_df["sr_no"] = ""
     max_sr_dict = {}
 
+    # Create a mapping of lowercase store names to their original names in the uploaded data
     upload_store_mapping = {store.lower(): store for store in uploaded_df["stores"].unique()}
 
-    # Function to correctly parse date in yyyy/dd/mm format as dd/mm/yyyy
-    def parse_date_custom(date_val):
-        # Convert to string and parse with dayfirst=True to fix swapped day/month
-        date_str = str(date_val)
-        return pd.to_datetime(date_str, dayfirst=True, errors='coerce')
-
-    # Function to get financial year string like "2526"
-    def get_financial_year(date):
-        if pd.isna(date):
-            return "0000"
-        year = date.year
-        if date.month >= 4:
-            start = year % 100
-            end = (year + 1) % 100
-        else:
-            start = (year - 1) % 100
-            end = year % 100
-        return f"{str(start).zfill(2)}{str(end).zfill(2)}"
-
-    # Find global max SR number from sr_dict (ignoring financial year suffix)
-    global_max_sr = 0
-    for sr_num in sr_dict.values():
-        if isinstance(sr_num, str) and sr_num.startswith('SR'):
-            try:
-                global_max_sr = max(global_max_sr, int(sr_num[2:].split('/')[0]))
-            except ValueError:
-                continue
-
-    total_rows = len(uploaded_df)
-    sr_numbers = []
-    for i in range(total_rows):
-        date_val = uploaded_df.iloc[i]["date"]
-        parsed_date = parse_date_custom(date_val)
-        fy = get_financial_year(parsed_date)
-        sr_number = f"SR{str(global_max_sr + i + 1).zfill(3)}/{fy}"
-        sr_numbers.append(sr_number)
-
-    uploaded_df["sr_no"] = sr_numbers
-
     for store_lower in [s.lower() for s in uploaded_df["stores"].unique()]:
+        # Get the original cased store name from the database, or from uploaded data
         original_store = store_case_mapping.get(store_lower, upload_store_mapping.get(store_lower))
+        
+        # Get the matching original cased store name in the uploaded data
         upload_store = upload_store_mapping.get(store_lower)
-
+        
+        # Determine the last SR number for this store (case-insensitive lookup)
+        last_sr = 0
+        for db_store, sr_num in sr_dict.items():
+            if db_store.lower() == store_lower:
+                last_sr = sr_num
+                break
+                
+        # Assign new SR numbers
         store_rows = uploaded_df["stores"].str.lower() == store_lower
-        store_sr_numbers = uploaded_df.loc[store_rows, "sr_no"].tolist()
-
-        if store_sr_numbers:
-            max_sr = max(store_sr_numbers, key=lambda x: int(x.split('/')[0][2:]))  # ignore fy part
-            max_sr_dict[original_store] = max_sr
-
+        new_srs = [f"SR{str(last_sr + i + 1).zfill(3)}" for i in range(store_rows.sum())]
+        uploaded_df.loc[store_rows, "sr_no"] = new_srs
+        
+        # Store the max SR for each store (with proper case)
+        max_sr_dict[original_store] = f"SR{str(last_sr + store_rows.sum()).zfill(3)}"
+        
+        # Update the store name in the dataframe to maintain consistent case
         if original_store and original_store != upload_store:
-            uploaded_df.loc[store_rows, "stores"] = original_store
-
+            uploaded_df.loc[uploaded_df["stores"].str.lower() == store_lower, "stores"] = original_store
 
     return uploaded_df, max_sr_dict
 
@@ -545,7 +432,6 @@ def call_update_sales_returns():
         st.success("✅ Stored procedure 'UpdateSalesReturns' executed successfully.")
     except Exception as e:
         st.error(f"❌ Error calling stored procedure: {e}")
-
 
 # Function to calculate Qty based on "-" in Design Numbers
 def calculate_qty(design_number):
@@ -1297,7 +1183,6 @@ elif st.session_state.page == "upload":
                     
                     sr_df = uploaded_df[required_columns].copy()
                     sr_df.rename(columns={
-                        
                         "sr amount": "bill_amount",
                         "invoice no": "invoice_no",
                         "order no": "order_no",
@@ -1322,8 +1207,6 @@ elif st.session_state.page == "upload":
                     to_df = uploaded_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
-                                          "sales_return_id": "sr_id",
-                                          
                                           "date": "return_date",
                                           "bill no": "bill_no"}, inplace=True)
                     
@@ -1337,6 +1220,7 @@ elif st.session_state.page == "upload":
                     to_df["branch_recived"] = "Banglore_WH" 
                     to_df["transfer_out_date"] = current_time
                     to_df["batch_no"] = batch_no
+                    to_df["RTO"] = 0
             
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
@@ -1448,7 +1332,7 @@ elif st.session_state.page == "upload":
 
                 uploaded_df = filter_inactive_stores(uploaded_df)
             
-                data = fetch_all_data1()  # Fetch all required data in one go
+                data = fetch_all_data()  # Fetch all required data in one go
                 
                 db_df = data["sales_returns_df"]  # tbl_wh_sales_returns data
                 db_transfer_out = data["transfer_out_df"]  # tbl_wh_transfer_out data
@@ -1512,7 +1396,7 @@ elif st.session_state.page == "upload":
                     sr_df["modified_by"] = "WH Team"  
                     sr_df["tran_type"] = "Sales Returns"
                     sr_df["batch_no"] = batch_no 
-                    sr_df["RTO"] = 0
+                    sr_df["RTO"] = 1
             
                     to_df = uploaded_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
@@ -1532,6 +1416,7 @@ elif st.session_state.page == "upload":
                     to_df["branch_recived"] = "Banglore_WH" 
                     to_df["transfer_out_date"] = current_time
                     to_df["batch_no"] = batch_no
+                    to_df["RTO"] = 1
             
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
