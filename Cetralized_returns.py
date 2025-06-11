@@ -1311,7 +1311,9 @@ elif st.session_state.page == "upload":
                 # Remove duplicates based on 'gst bill no' and keep the first occurrence
                 uploaded_df = uploaded_df.drop_duplicates(subset='gst bill no', keep='first')
 
-                gst_bill_no = uploaded_df['gst bill no'].tolist()
+                gst_bill_no = uploaded_df['gst bill no'].astype(str).tolist()
+
+                placeholders = ', '.join(['%s'] * len(gst_bill_no))
 
                 conn = mysql.connector.connect(**DB_CONFIG)
                 cursor = conn.cursor(dictionary=True)
@@ -1321,11 +1323,11 @@ elif st.session_state.page == "upload":
                 query = f"""
                     SELECT distinct t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number, t2.design_number, sum(t2.sold_qty) as qty FROM minimized_sales_register t1
                     LEFT JOIN tbl_sales t2 on t1.bill_number = t2.bill_number and t1.bill_date = t2.bill_date
-                    WHERE t1.GST_bill_number IN ({gst_bill_no})
+                    WHERE t1.GST_bill_number IN ({placeholders})
                     group by t2.combination_id;
                 """
 
-                cursor.execute(query)
+                cursor.execute(query, gst_bill_no)
                 filtered_data = cursor.fetchall()
                 df_filtered = pd.DataFrame(filtered_data)
 
