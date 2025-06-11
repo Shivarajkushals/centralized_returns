@@ -1361,9 +1361,9 @@ elif st.session_state.page == "upload":
                 st.write("uploaded_df")
                 st.dataframe(uploaded_df)
 
-                # Filter out inactive stores
                 uploaded_df = filter_inactive_stores(uploaded_df)
             
+                st.dataframe(uploaded_df)
             
                 data = fetch_all_data()  # Fetch all required data in one go
                 
@@ -1398,7 +1398,7 @@ elif st.session_state.page == "upload":
             
                     uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id", "bill_date"]
+                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1429,7 +1429,7 @@ elif st.session_state.page == "upload":
                     sr_df["modified_by"] = "WH Team"  
                     sr_df["tran_type"] = "Sales Returns"
                     sr_df["batch_no"] = batch_no 
-                    sr_df["RTO"] = 1
+                    sr_df["RTO"] = 0
             
                     to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
