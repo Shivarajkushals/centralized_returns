@@ -1372,7 +1372,7 @@ elif st.session_state.page == "upload":
                     sr_df["batch_no"] = batch_no 
                     sr_df["RTO"] = 1
             
-                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "bill no"]].copy()
+                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "sales_return_id", "date", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
                                           "sales_return_id": "sr_id",
