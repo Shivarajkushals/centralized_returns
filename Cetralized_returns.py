@@ -1348,8 +1348,8 @@ elif st.session_state.page == "upload":
                 # Step 3: Merge to get bill_date and qty from db
                 merged_df = pd.merge(
                     uploaded_df,
-                    df_filtered[['gst bill no', 'combination_id', 'Design Numbers', 'bill_date', 'qty']],
-                    on=['gst bill no', 'combination_id', 'Design Numbers'],
+                    df_filtered[['gst bill no', 'combination_id', 'design numbers', 'bill_date', 'qty']],
+                    on=['gst bill no', 'combination_id', 'design numbers'],
                     how='left'
                 )
 
