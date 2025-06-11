@@ -1392,7 +1392,7 @@ elif st.session_state.page == "upload":
                     to_df["batch_no"] = batch_no
             
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
-                    rows_inserted = insert_data(to_df, "tbl_wh_trasnsfer_out")
+                    rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
                     call_update_sales_returns1()
                     sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
             
