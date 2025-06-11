@@ -1222,9 +1222,6 @@ elif st.session_state.page == "upload":
     
     # Existing page code remains unchanged
     if page == "RTV page":
-        st.cache_data.clear()
-        st.cache_resource.clear()
-        
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
         with col2:
             # Streamlit UI
@@ -1289,7 +1286,7 @@ elif st.session_state.page == "upload":
             
                     uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
+                    required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1300,7 +1297,7 @@ elif st.session_state.page == "upload":
                     
                     sr_df = uploaded_df[required_columns].copy()
                     sr_df.rename(columns={
-                        "sales_return_id": "id",
+                        
                         "sr amount": "bill_amount",
                         "invoice no": "invoice_no",
                         "order no": "order_no",
@@ -1322,11 +1319,11 @@ elif st.session_state.page == "upload":
                     sr_df["batch_no"] = batch_no 
                     sr_df["RTO"] = 0
             
-                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "combination_id", "bill no"]].copy()
+                    to_df = uploaded_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
                                           "sales_return_id": "sr_id",
-                                          "transfer_out_id": "id",
+                                          
                                           "date": "return_date",
                                           "bill no": "bill_no"}, inplace=True)
                     
@@ -1357,8 +1354,6 @@ elif st.session_state.page == "upload":
         pass
 
     if page == "RTO page":
-        st.cache_data.clear()
-        st.cache_resource.clear()
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
         with col2:
             # Streamlit UI
@@ -1486,7 +1481,7 @@ elif st.session_state.page == "upload":
             
                     uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
+                    required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1497,7 +1492,7 @@ elif st.session_state.page == "upload":
                     
                     sr_df = uploaded_df[required_columns].copy()
                     sr_df.rename(columns={
-                        "sales_return_id": "id",
+                        
                         "sr amount": "bill_amount",
                         "invoice no": "invoice_no",
                         "order no": "order_no",
@@ -1519,11 +1514,11 @@ elif st.session_state.page == "upload":
                     sr_df["batch_no"] = batch_no 
                     sr_df["RTO"] = 0
             
-                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "combination_id", "bill no"]].copy()
+                    to_df = uploaded_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
                                           "sales_return_id": "sr_id",
-                                          "transfer_out_id": "id",
+                                          
                                           "date": "return_date",
                                           "bill no": "bill_no"}, inplace=True)
                     
