@@ -145,6 +145,91 @@ def fetch_all_data():
             "next_batch_no": 1
         }
 
+def fetch_all_data1():
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor(dictionary=True)
+
+        # Fetch full table data
+        cursor.execute("SELECT * FROM tbl_wh_sales_returns;")
+        sales_returns_data = cursor.fetchall()
+
+        cursor.execute("SELECT * FROM tbl_wh_transfer_out;")
+        transfer_out_data = cursor.fetchall()
+
+        # # Fetch most recent records based on created_date
+        # cursor.execute("""
+        #     SELECT * FROM tbl_wh_sales_returns 
+        #     WHERE created_date = (SELECT MAX(created_date) FROM tbl_wh_sales_returns);
+        # """)
+        # recent_sales_returns = cursor.fetchall()
+
+        # cursor.execute("""
+        #     SELECT * FROM tbl_wh_transfer_out 
+        #     WHERE created_date = (SELECT MAX(created_date) FROM tbl_wh_transfer_out);
+        # """)
+        # recent_transfer_out = cursor.fetchall()
+
+        # Fetch max SR number per store
+        query = """
+        SELECT store_name, max_sr
+        FROM tbl_wh_store_config
+        GROUP BY store_name;
+        """
+        cursor.execute(query)
+        sr_numbers = {row["store_name"]: int(row["max_sr"][2:]) for row in cursor.fetchall() if row["max_sr"]}
+
+        # Fetch store name mapping (lowercase to original case)
+        cursor.execute("SELECT store_name FROM tbl_wh_store_config;")
+        store_case_mapping = {row["store_name"].lower(): row["store_name"] for row in cursor.fetchall()}
+
+        # Fetch max TO number per store
+        cursor.execute("SELECT store_name, max_to FROM tbl_wh_store_config GROUP BY store_name;")
+        to_numbers = {row["store_name"]: int(row["max_to"][2:]) for row in cursor.fetchall() if row["max_to"]}
+
+        # Fetch max IDs from both tables
+        cursor.execute("SELECT MAX(id) AS max_sr_id FROM tbl_wh_sales_returns;")
+        max_sr_id = cursor.fetchone()["max_sr_id"] or 0
+
+        cursor.execute("SELECT MAX(id) AS max_to_id FROM tbl_wh_transfer_out;")
+        max_to_id = cursor.fetchone()["max_to_id"] or 0
+
+        # Fetch max batch number (whole number only)
+        cursor.execute("SELECT MAX(batch_no) AS max_batch_no FROM tbl_wh_sales_returns;")
+        batch_result = cursor.fetchone()
+        max_batch_no = int(batch_result["max_batch_no"]) if batch_result["max_batch_no"] is not None else 0
+
+        cursor.close()
+        conn.close()
+
+        return {
+            "sales_returns_df": pd.DataFrame(sales_returns_data),
+            "transfer_out_df": pd.DataFrame(transfer_out_data),
+            # "recent_sales_returns_df": pd.DataFrame(recent_sales_returns),
+            # "recent_transfer_out_df": pd.DataFrame(recent_transfer_out),
+            "sr_numbers": sr_numbers,
+            "to_numbers": to_numbers,
+            "max_sr_id": max_sr_id,
+            "max_to_id": max_to_id,
+            "store_case_mapping": store_case_mapping,
+            "next_batch_no": max_batch_no + 1
+        }
+
+    except Exception as e:
+        st.error(f"❌ Error fetching data: {e}")
+        return {
+            "sales_returns_df": pd.DataFrame(),
+            "transfer_out_df": pd.DataFrame(),
+            # "recent_sales_returns_df": pd.DataFrame(),
+            # "recent_transfer_out_df": pd.DataFrame(),
+            "sr_numbers": {},
+            "to_numbers": {},
+            "max_sr_id": 0,
+            "max_to_id": 0,
+            "store_case_mapping": {},
+            "next_batch_no": 1
+        }
+
 # Simple function to filter out inactive stores
 def filter_inactive_stores(uploaded_df):
     try:
@@ -1363,7 +1448,7 @@ elif st.session_state.page == "upload":
 
                 uploaded_df = filter_inactive_stores(uploaded_df)
             
-                data = fetch_all_data()  # Fetch all required data in one go
+                data = fetch_all_data1()  # Fetch all required data in one go
                 
                 db_df = data["sales_returns_df"]  # tbl_wh_sales_returns data
                 db_transfer_out = data["transfer_out_df"]  # tbl_wh_transfer_out data
