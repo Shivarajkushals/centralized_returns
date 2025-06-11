@@ -1301,6 +1301,61 @@ elif st.session_state.page == "upload":
             
                 # Standardizing column names (Fix for 'Stores' KeyError)
                 uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+
+                # Find duplicate GST Bill Numbers
+                duplicate_gst_bills = uploaded_df[uploaded_df.duplicated('gst bill no', keep=False)]
+
+                print("Duplicate GST Bill Numbers:")
+                print(duplicate_gst_bills)
+
+                # Remove duplicates based on 'gst bill no' and keep the first occurrence
+                uploaded_df = uploaded_df.drop_duplicates(subset='gst bill no', keep='first')
+
+                gst_bill_no = uploaded_df['gst bill no'].tolist()
+
+                conn = mysql.connector.connect(**DB_CONFIG)
+                cursor = conn.cursor(dictionary=True)
+
+                # Format the placeholders and store list
+
+                query = f"""
+                    SELECT distinct t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number, t2.design_number, sum(t2.sold_qty) as qty FROM minimized_sales_register t1
+                    LEFT JOIN tbl_sales t2 on t1.bill_number = t2.bill_number and t1.bill_date = t2.bill_date
+                    WHERE t1.GST_bill_number IN ({gst_bill_no})
+                    group by t2.combination_id;
+                """
+
+                cursor.execute(query)
+                filtered_data = cursor.fetchall()
+                df_filtered = pd.DataFrame(filtered_data)
+
+                cursor.close()
+                conn.close()
+
+                # Step 1: Normalize keys for merge
+                uploaded_df['gst bill no'] = uploaded_df['gst bill no'].astype(str).str.strip().str.upper()
+                df_filtered['GST_bill_number'] = df_filtered['GST_bill_number'].astype(str).str.strip().str.upper()
+
+                # Step 2: Prepare columns for matching
+                # We'll merge on: gst bill no, combination_id, and design number
+                df_filtered.rename(columns={
+                    'GST_bill_number': 'gst bill no',
+                    'design_number': 'Design Numbers'
+                }, inplace=True)
+
+                # Step 3: Merge to get bill_date and qty from db
+                merged_df = pd.merge(
+                    uploaded_df,
+                    df_filtered[['gst bill no', 'combination_id', 'Design Numbers', 'bill_date', 'qty']],
+                    on=['gst bill no', 'combination_id', 'Design Numbers'],
+                    how='left'
+                )
+
+                # Step 4: Fill in missing columns
+                # Only update if there's a match in df_filtered
+                uploaded_df['bill_date'] = merged_df['bill_date']
+                uploaded_df['qty'] = merged_df['qty']
+
                 
                 # Filter out inactive stores
                 uploaded_df = filter_inactive_stores(uploaded_df)
@@ -1340,7 +1395,7 @@ elif st.session_state.page == "upload":
             
                     uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = ["sales_return_id", "stores", "bill no", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "gst bill no"]
+                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1357,8 +1412,9 @@ elif st.session_state.page == "upload":
                         "order no": "order_no",
                         "stores": "outlet_name", 
                         "bill no": "bill_no", 
-                        "date": "return_date",
-                        "gst bill no": "gst_billno"
+                        "design numbers": "design_no", 
+                        "qty": "Sold_qty", 
+                        "date": "return_date"
                     }, inplace=True)
                     
                     # Adding additional constant columns
@@ -1372,7 +1428,7 @@ elif st.session_state.page == "upload":
                     sr_df["batch_no"] = batch_no 
                     sr_df["RTO"] = 1
             
-                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "sales_return_id", "date", "bill no"]].copy()
+                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
                                           "sales_return_id": "sr_id",
