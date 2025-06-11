@@ -1342,7 +1342,7 @@ elif st.session_state.page == "upload":
                 # We'll merge on: gst bill no, combination_id, and design number
                 df_filtered.rename(columns={
                     'GST_bill_number': 'gst bill no',
-                    'design_number': 'Design Numbers'
+                    'design_number': 'design numbers'
                 }, inplace=True)
 
                 # Step 3: Merge to get bill_date and qty from db
