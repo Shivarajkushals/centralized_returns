@@ -469,7 +469,7 @@ def call_update_sales_returns1():
         conn.commit()
         cursor.close()
         conn.close()
-        st.success("✅ Stored procedure 'UpdateSalesReturns' executed successfully.")
+        st.success("✅ Stored procedure 'UpdateSalesReturns1' executed successfully.")
     except Exception as e:
         st.error(f"❌ Error calling stored procedure: {e}")
 
