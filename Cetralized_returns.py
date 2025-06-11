@@ -1222,6 +1222,9 @@ elif st.session_state.page == "upload":
     
     # Existing page code remains unchanged
     if page == "RTV page":
+        st.cache_data.clear()
+        st.cache_resource.clear()
+        
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
         with col2:
             # Streamlit UI
@@ -1354,6 +1357,8 @@ elif st.session_state.page == "upload":
         pass
 
     if page == "RTO page":
+        st.cache_data.clear()
+        st.cache_resource.clear()
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
         with col2:
             # Streamlit UI
