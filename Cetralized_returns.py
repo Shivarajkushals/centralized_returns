@@ -1134,24 +1134,6 @@ elif st.session_state.page == "Config":
 # Add this inside your application code after your current page options
 elif st.session_state.page == "upload":    
     page = st.sidebar.radio("Select Page", ["RTV page", "RTO page", "SR page", "TO page"])  # Added "Config page"
-
-    # Initialize last_page if not already set
-    if "last_page" not in st.session_state:
-        st.session_state.last_page = None
-
-    # Detect page switch and clear state if needed
-    if st.session_state.last_page != page:
-        keys_to_keep = ["last_page"]  # Add more keys here if you want to persist them
-        keys_to_delete = [key for key in st.session_state.keys() if key not in keys_to_keep]
-
-        for key in keys_to_delete:
-            del st.session_state[key]
-
-        # Update session state to reflect new page
-        st.session_state.last_page = page
-
-    # Set current page value (always)
-    st.session_state.page = page
     
     # Existing page code remains unchanged
     if page == "RTV page":
