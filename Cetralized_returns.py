@@ -461,17 +461,6 @@ def call_update_sales_returns():
     except Exception as e:
         st.error(f"❌ Error calling stored procedure: {e}")
 
-def call_update_sales_returns1():
-    try:
-        conn = mysql.connector.connect(**DB_CONFIG)
-        cursor = conn.cursor()
-        cursor.callproc("UpdateSalesReturns1")
-        conn.commit()
-        cursor.close()
-        conn.close()
-        st.success("✅ Stored procedure 'UpdateSalesReturns1' executed successfully.")
-    except Exception as e:
-        st.error(f"❌ Error calling stored procedure: {e}")
 
 # Function to calculate Qty based on "-" in Design Numbers
 def calculate_qty(design_number):
@@ -1321,48 +1310,60 @@ elif st.session_state.page == "upload":
                 # Format the placeholders and store list
 
                 query = f"""
-                    SELECT distinct t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number, t2.design_number, sum(t2.sold_qty) as qty FROM minimized_sales_register t1
-                    LEFT JOIN tbl_sales t2 on t1.bill_number = t2.bill_number and t1.bill_date = t2.bill_date
+                    SELECT DISTINCT t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number,
+                                    t2.design_number, SUM(t2.sold_qty) as qty
+                    FROM minimized_sales_register t1
+                    LEFT JOIN tbl_sales t2 ON t1.bill_number = t2.bill_number AND t1.bill_date = t2.bill_date
                     WHERE t1.GST_bill_number IN ({placeholders})
-                    group by t2.combination_id;
+                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number;
                 """
-
-                cursor.execute(query, gst_bill_no)
+                cursor.execute(query, tuple(gst_bill_no))
                 filtered_data = cursor.fetchall()
                 df_filtered = pd.DataFrame(filtered_data)
 
                 cursor.close()
                 conn.close()
 
+                expanded_df = df_filtered.copy()
+
                 # Step 1: Normalize keys for merge
                 uploaded_df['gst bill no'] = uploaded_df['gst bill no'].astype(str).str.strip().str.upper()
-                df_filtered['GST_bill_number'] = df_filtered['GST_bill_number'].astype(str).str.strip().str.upper()
+                expanded_df['GST_bill_number'] = expanded_df['GST_bill_number'].astype(str).str.strip().str.upper()
 
                 # Step 2: Prepare columns for matching
                 # We'll merge on: gst bill no, combination_id, and design number
-                df_filtered.rename(columns={
+                expanded_df.rename(columns={
                     'GST_bill_number': 'gst bill no',
                     'design_number': 'design numbers'
                 }, inplace=True)
 
-                # Step 3: Merge to get bill_date and qty from db
-                merged_df = pd.merge(
+                # Strip & match column names and types before merge
+                uploaded_df['gst bill no'] = uploaded_df['gst bill no'].astype(str).str.strip().str.upper()
+
+                expanded_df['gst bill no'] = expanded_df['gst bill no'].astype(str).str.strip().str.upper()
+                expanded_df['combination_id'] = expanded_df['combination_id'].astype(str).str.strip()
+                expanded_df['design numbers'] = expanded_df['design numbers'].astype(str).str.strip().str.upper()
+
+                expanded_df = pd.merge(
+                    expanded_df,
                     uploaded_df,
-                    df_filtered[['gst bill no', 'combination_id', 'design numbers', 'bill_date', 'qty']],
-                    on=['gst bill no', 'combination_id', 'design numbers'],
+                    on='gst bill no',
                     how='left'
                 )
 
-                # Step 4: Fill in missing columns
-                # Only update if there's a match in df_filtered
-                uploaded_df['bill_date'] = merged_df['bill_date']
-                uploaded_df['qty'] = merged_df['qty']
+                missing_gst_bill_nos = uploaded_df[~uploaded_df['gst bill no'].isin(expanded_df['gst bill no'])]
 
-                
+                st.write("missing_gst_bill_nos")
+                st.dataframe(missing_gst_bill_nos)
+
+                uploaded_df = expanded_df
+
+                st.write("uploaded_df")
+                st.dataframe(uploaded_df)
+
                 # Filter out inactive stores
                 uploaded_df = filter_inactive_stores(uploaded_df)
             
-                st.dataframe(uploaded_df)
             
                 data = fetch_all_data()  # Fetch all required data in one go
                 
@@ -1397,7 +1398,7 @@ elif st.session_state.page == "upload":
             
                     uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
+                    required_columns = ["sales_return_id", "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id", "bill_date"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1451,7 +1452,7 @@ elif st.session_state.page == "upload":
             
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
-                    call_update_sales_returns1()
+                    call_update_sales_returns()
                     sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
             
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
