@@ -1363,8 +1363,6 @@ elif st.session_state.page == "upload":
 
                 uploaded_df = filter_inactive_stores(uploaded_df)
             
-                st.dataframe(uploaded_df)
-            
                 data = fetch_all_data()  # Fetch all required data in one go
                 
                 db_df = data["sales_returns_df"]  # tbl_wh_sales_returns data
