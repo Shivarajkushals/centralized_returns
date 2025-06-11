@@ -190,7 +190,7 @@ def check_duplicates(uploaded_df, db_df):
         "return_date": "date",
         "outlet_name": "stores",
         "bill_no": "bill no",
-        "design_no": "design numbers",
+        "combination_id": "combination_id",
     }
 
     # Ensure mapped columns exist in both DataFrames
@@ -212,13 +212,13 @@ def check_duplicates(uploaded_df, db_df):
     merged_df = upload_comparison.merge(
         db_comparison,
         how="inner",
-        on=["date", "stores", "bill no", "design numbers"]
+        on=["date", "stores", "bill no", "combination_id"]
     )
 
     # Extract duplicate records from original uploaded_df
     duplicate_indices = upload_comparison[
-        upload_comparison.set_index(["date", "stores", "bill no", "design numbers"]).index.isin(
-            merged_df.set_index(["date", "stores", "bill no", "design numbers"]).index
+        upload_comparison.set_index(["date", "stores", "bill no", "combination_id"]).index.isin(
+            merged_df.set_index(["date", "stores", "bill no", "combination_id"]).index
         )
     ].index
 
@@ -454,6 +454,18 @@ def call_update_sales_returns():
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
         cursor.callproc("UpdateSalesReturns")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        st.success("✅ Stored procedure 'UpdateSalesReturns' executed successfully.")
+    except Exception as e:
+        st.error(f"❌ Error calling stored procedure: {e}")
+
+def call_update_sales_returns1():
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.callproc("UpdateSalesReturns1")
         conn.commit()
         cursor.close()
         conn.close()
@@ -1231,6 +1243,7 @@ elif st.session_state.page == "upload":
                     sr_df["modified_by"] = "WH Team"  
                     sr_df["tran_type"] = "Sales Returns"
                     sr_df["batch_no"] = batch_no 
+                    sr_df["RTO"] = 0
             
                     to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
@@ -1266,33 +1279,132 @@ elif st.session_state.page == "upload":
                     st.warning("⚠️ No new data to process after removing duplicates.")
         pass
 
-    elif page == "RTO page":
+    if page == "RTO page":
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
         with col2:
-            st.title("Upload Excel or CSV File to Generate SR and TO Files")
-
-            uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx", "xls"])
-
+            # Streamlit UI
+            st.title("Upload the excel file to generate SR and TO files")
+            
+            uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx"])
+            
             if uploaded_file is not None:
-                try:
-                    # Read the file based on its extension
-                    if uploaded_file.name.endswith(".csv"):
-                        uploaded_df = pd.read_csv(uploaded_file)
-                    else:
+                if uploaded_file.name.endswith(".csv"):
+                    uploaded_df = pd.read_csv(uploaded_file)
+                else:
+                    try:
                         uploaded_df = pd.read_excel(uploaded_file, engine="openpyxl")
+                    except ImportError:
+                        st.error("Missing dependency: Please install 'openpyxl' using `pip install openpyxl`.")
+                
+                st.write("Uploaded file")
+                st.dataframe(uploaded_df)
+            
+                # Standardizing column names (Fix for 'Stores' KeyError)
+                uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+                
+                # Filter out inactive stores
+                uploaded_df = filter_inactive_stores(uploaded_df)
+            
+                st.dataframe(uploaded_df)
+            
+                data = fetch_all_data()  # Fetch all required data in one go
+                
+                db_df = data["sales_returns_df"]  # tbl_wh_sales_returns data
+                db_transfer_out = data["transfer_out_df"]  # tbl_wh_transfer_out data
+                
+                sr_dict = data["sr_numbers"]  # Max SR numbers per store
+                to_dict = data["to_numbers"]  # Max TO numbers per store
+                store_case_mapping = data["store_case_mapping"]  # Store name case mapping
+                
+                max_sr_id = data["max_sr_id"]  # Max ID from tbl_wh_sales_returns
+                max_to_id = data["max_to_id"]  # Max ID from tbl_wh_transfer_out
 
-                    # Display uploaded data
-                    st.success(" File uploaded successfully!")
-                    st.subheader(" Preview of Uploaded Data")
-                    st.dataframe(uploaded_df.head(), use_container_width=True)
-
-                    # Normalize column names
-                    uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
+                batch_no = data["next_batch_no"] # Max batch id for one time updation
+            
+                uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
+                
+                # Use the modified functions with store_case_mapping
+                uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
+                uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
+            
+                if not duplicate_records.empty:
+                    st.warning("⚠️ Duplicate records found! These will not be processed.")
+                    st.dataframe(duplicate_records)
                     
-                    # You can continue processing from here
-
-                except Exception as e:
-                    st.error(f"❌ Error reading file: {e}")
+                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
+                    st.download_button("Download Duplicate Records", csv_duplicates, "duplicate_records.csv", "text/csv")
+            
+            
+                if not uploaded_df.empty:
+                    st.success("✅ Processing non-duplicate data...")
+            
+                    uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
+            
+                    required_columns = ["sales_return_id", "stores", "bill no", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "gst bill no"]
+                    
+                    for col in required_columns:
+                        if col not in uploaded_df.columns:
+                            st.error(f"❌ Missing required column: {col}")
+                            st.stop()
+                            
+                    current_time = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+                    
+                    sr_df = uploaded_df[required_columns].copy()
+                    sr_df.rename(columns={
+                        "sales_return_id": "id",
+                        "sr amount": "bill_amount",
+                        "invoice no": "invoice_no",
+                        "order no": "order_no",
+                        "stores": "outlet_name", 
+                        "bill no": "bill_no", 
+                        "date": "return_date",
+                        "gst bill no": "gst_billno"
+                    }, inplace=True)
+                    
+                    # Adding additional constant columns
+                    sr_df["is_active"] = 1
+                    sr_df["created_date"] = current_time  # Convert to string
+                    sr_df["modified_date"] = current_time  
+                    sr_df["return_date"] = pd.to_datetime(sr_df["return_date"]).dt.strftime('%Y-%m-%d %H:%M:%S')
+                    sr_df["created_by"] = "WH Team"
+                    sr_df["modified_by"] = "WH Team"  
+                    sr_df["tran_type"] = "Sales Returns"
+                    sr_df["batch_no"] = batch_no 
+                    sr_df["RTO"] = 1
+            
+                    to_df = uploaded_df[["transfer_out_id", "stores", "to_no", "qty","sales_return_id", "date", "bill no"]].copy()
+                    to_df.rename(columns={"stores": "outlet_name_from",
+                                          "to_no": "transfer_out_no",
+                                          "sales_return_id": "sr_id",
+                                          "transfer_out_id": "id",
+                                          "date": "return_date",
+                                          "bill no": "bill_no"}, inplace=True)
+                    
+                    # Adding additional constant columns
+                    to_df["is_active"] = 1  
+                    to_df["created_date"] = current_time  # Convert to string
+                    to_df["modified_date"] = current_time 
+                    to_df["created_by"] = "WH Team"
+                    to_df["return_date"] = pd.to_datetime(to_df["return_date"]).dt.strftime('%Y-%m-%d %H:%M:%S')  
+                    to_df["modified_by"] = "WH Team"  
+                    to_df["branch_recived"] = "Banglore_WH" 
+                    to_df["transfer_out_date"] = current_time
+                    to_df["batch_no"] = batch_no
+            
+                    rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
+                    rows_inserted = insert_data(to_df, "tbl_wh_trasnsfer_out")
+                    call_update_sales_returns1()
+                    sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
+            
+                    st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
+                    st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
+                    
+                    csv_uploaded = uploaded_df.to_csv(index=False).encode("utf-8")
+                    st.download_button("Download Updated CSV", csv_uploaded, "updated_data.csv", "text/csv")
+            
+                else:
+                    st.warning("⚠️ No new data to process after removing duplicates.")
+        pass
     
     elif page == "SR page":
         st.subheader("🔍 Filter Sales returns Data")
