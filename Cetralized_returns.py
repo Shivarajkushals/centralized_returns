@@ -58,12 +58,7 @@ def load_credentials():
 # Load credentials
 VALID_CREDENTIALS = load_credentials()
 
-DB_CONFIG = {
-    "host": "kushals-rds.cchcmbdwnmis.ap-south-1.rds.amazonaws.com",
-    "user": "KushalsAdmin",
-    "password": "PdXA5Uvpg4DUAr4U",
-    "database": "kushal-prod-db"
-}
+DB_CONFIG = st.secrets["db_config"]
 
 def fetch_all_data():
     try:
