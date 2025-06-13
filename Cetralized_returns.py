@@ -1104,6 +1104,18 @@ elif st.session_state.page == "upload":
     # Existing page code remains unchanged
     if page == "RTV page":
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
+        with col3:
+            # GitHub raw file URL (make sure it's the raw version)
+            template_url = "https://raw.githubusercontent.com/Shivarajkushals/centralized_returns/main/RTV%20Template.xlsx"
+
+            # st.markdown("### 📥 Download Excel Template")
+
+            st.markdown(
+                f'<a href="{template_url}" download target="_blank">'
+                f'<button style="background-color:#4CAF50;color:white;padding:8px 6px;border:none;border-radius:5px;cursor:pointer;">📥 Download Template</button>'
+                f'</a>',
+                unsafe_allow_html=True
+            )
         with col2:
             # Streamlit UI
             st.title("Upload the excel file to generate SR and TO files")
@@ -1302,6 +1314,19 @@ elif st.session_state.page == "upload":
 
     if page == "RTO page":
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
+        col1, col2, col3 = st.columns([1.5, 8, 1.5])
+        with col3:
+            # GitHub raw file URL (make sure it's the raw version)
+            template_url = "https://raw.githubusercontent.com/Shivarajkushals/centralized_returns/main/RTO%20Template.xlsx"
+
+            # st.markdown("### 📥 Download Excel Template")
+
+            st.markdown(
+                f'<a href="{template_url}" download target="_blank">'
+                f'<button style="background-color:#4CAF50;color:white;padding:8px 6px;border:none;border-radius:5px;cursor:pointer;">📥 Download Template</button>'
+                f'</a>',
+                unsafe_allow_html=True
+            )
         with col2:
             # Streamlit UI
             st.title("Upload the excel file to generate SR and TO files")
