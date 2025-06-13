@@ -58,7 +58,12 @@ def load_credentials():
 # Load credentials
 VALID_CREDENTIALS = load_credentials()
 
-DB_CONFIG = st.secrets["db_config"]
+DB_CONFIG = {
+    "host": "kushals-rds.cchcmbdwnmis.ap-south-1.rds.amazonaws.com",
+    "user": "KushalsAdmin",
+    "password": "PdXA5Uvpg4DUAr4U",
+    "database": "kushal-prod-db"
+}
 
 def fetch_all_data():
     try:
@@ -86,13 +91,14 @@ def fetch_all_data():
         # recent_transfer_out = cursor.fetchall()
 
         # Fetch max SR number per store
-        query = """
-        SELECT store_name, max_sr
-        FROM tbl_wh_store_config
-        GROUP BY store_name;
+        query = """ 
+        SELECT sr_no
+        FROM tbl_wh_sales_returns
+        WHERE id = (SELECT MAX(id) FROM tbl_wh_sales_returns);
         """
         cursor.execute(query)
-        sr_numbers = {row["store_name"]: int(row["max_sr"][2:]) for row in cursor.fetchall() if row["max_sr"]}
+        row = cursor.fetchone()
+        sr_number = row["sr_no"] if row and "sr_no" in row else None
 
         # Fetch store name mapping (lowercase to original case)
         cursor.execute("SELECT store_name FROM tbl_wh_store_config;")
@@ -103,11 +109,11 @@ def fetch_all_data():
         to_numbers = {row["store_name"]: int(row["max_to"][2:]) for row in cursor.fetchall() if row["max_to"]}
 
         # Fetch max IDs from both tables
-        cursor.execute("SELECT MAX(id) AS max_sr_id FROM tbl_wh_sales_returns;")
-        max_sr_id = cursor.fetchone()["max_sr_id"] or 0
+        # cursor.execute("SELECT MAX(id) AS max_sr_id FROM tbl_wh_sales_returns;")
+        # max_sr_id = cursor.fetchone()["max_sr_id"] or 0
 
-        cursor.execute("SELECT MAX(id) AS max_to_id FROM tbl_wh_transfer_out;")
-        max_to_id = cursor.fetchone()["max_to_id"] or 0
+        # cursor.execute("SELECT MAX(id) AS max_to_id FROM tbl_wh_transfer_out;")
+        # max_to_id = cursor.fetchone()["max_to_id"] or 0
 
         # Fetch max batch number (whole number only)
         cursor.execute("SELECT MAX(batch_no) AS max_batch_no FROM tbl_wh_sales_returns;")
@@ -122,10 +128,10 @@ def fetch_all_data():
             "transfer_out_df": pd.DataFrame(transfer_out_data),
             # "recent_sales_returns_df": pd.DataFrame(recent_sales_returns),
             # "recent_transfer_out_df": pd.DataFrame(recent_transfer_out),
-            "sr_numbers": sr_numbers,
+            "sr_numbers": sr_number,
             "to_numbers": to_numbers,
-            "max_sr_id": max_sr_id,
-            "max_to_id": max_to_id,
+            # "max_sr_id": max_sr_id,
+            # "max_to_id": max_to_id,
             "store_case_mapping": store_case_mapping,
             "next_batch_no": max_batch_no + 1
         }
@@ -139,8 +145,8 @@ def fetch_all_data():
             # "recent_transfer_out_df": pd.DataFrame(),
             "sr_numbers": {},
             "to_numbers": {},
-            "max_sr_id": 0,
-            "max_to_id": 0,
+            # "max_sr_id": 0,
+            # "max_to_id": 0,
             "store_case_mapping": {},
             "next_batch_no": 1
         }
@@ -191,7 +197,7 @@ def check_duplicates(uploaded_df, db_df):
         "outlet_name": "stores",
         "bill_no": "bill no",
         "combination_id": "combination_id",
-        "barcode": "barcode"
+        "barcode": "barcode",
     }
 
     # Ensure mapped columns exist in both DataFrames
@@ -204,10 +210,14 @@ def check_duplicates(uploaded_df, db_df):
     db_comparison = db_df.rename(columns=column_mapping).copy()
     upload_comparison = working_df.copy()
 
-    # Ensure consistency for comparison: convert to string, strip whitespace, and lowercase
+    # Clean and standardize columns
     for col in column_mapping.values():
         upload_comparison[col] = upload_comparison[col].astype(str).str.strip().str.lower()
         db_comparison[col] = db_comparison[col].astype(str).str.strip().str.lower()
+        
+        # Special handling for barcode: remove double quotes
+        if col == "barcode":
+            db_comparison[col] = db_comparison[col].str.replace('"', '', regex=False)
 
     # Merge to find duplicates
     merged_df = upload_comparison.merge(
@@ -232,41 +242,29 @@ def check_duplicates(uploaded_df, db_df):
     return non_duplicate_df, duplicate_records
 
 # Function to assign SR numbers and return max SR per store
-def assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping):
+def assign_sr_numbers(uploaded_df, sr_number):
     uploaded_df = uploaded_df.copy()
     uploaded_df["sr_no"] = ""
-    max_sr_dict = {}
 
-    # Create a mapping of lowercase store names to their original names in the uploaded data
-    upload_store_mapping = {store.lower(): store for store in uploaded_df["stores"].unique()}
+    global_max_sr = 0
+    if isinstance(sr_number, str) and sr_number.startswith("SR"):
+        try:
+            sr_body = sr_number[2:]  # remove 'SR'
+            sr_main = sr_body.split('/')[0]
+            if sr_main.isdigit():
+                global_max_sr = int(sr_main)
+        except Exception as e:
+            print(f"Skipping invalid SR number: {sr_number} — Error: {e}")
 
-    for store_lower in [s.lower() for s in uploaded_df["stores"].unique()]:
-        # Get the original cased store name from the database, or from uploaded data
-        original_store = store_case_mapping.get(store_lower, upload_store_mapping.get(store_lower))
-        
-        # Get the matching original cased store name in the uploaded data
-        upload_store = upload_store_mapping.get(store_lower)
-        
-        # Determine the last SR number for this store (case-insensitive lookup)
-        last_sr = 0
-        for db_store, sr_num in sr_dict.items():
-            if db_store.lower() == store_lower:
-                last_sr = sr_num
-                break
-                
-        # Assign new SR numbers
-        store_rows = uploaded_df["stores"].str.lower() == store_lower
-        new_srs = [f"SR{str(last_sr + i + 1).zfill(3)}" for i in range(store_rows.sum())]
-        uploaded_df.loc[store_rows, "sr_no"] = new_srs
-        
-        # Store the max SR for each store (with proper case)
-        max_sr_dict[original_store] = f"SR{str(last_sr + store_rows.sum()).zfill(3)}"
-        
-        # Update the store name in the dataframe to maintain consistent case
-        if original_store and original_store != upload_store:
-            uploaded_df.loc[uploaded_df["stores"].str.lower() == store_lower, "stores"] = original_store
+    # Now assign new SR numbers
+    new_sr_list = []
+    for i in range(len(uploaded_df)):
+        new_sr = f"SR{str(global_max_sr + i + 1).zfill(3)}"
+        new_sr_list.append(new_sr)
 
-    return uploaded_df, max_sr_dict
+    uploaded_df["sr_no"] = new_sr_list
+    return uploaded_df
+
 
 # Function to assign TO numbers and return max TO per store
 def assign_to_numbers(uploaded_df, to_dict, store_case_mapping):
@@ -298,13 +296,13 @@ def assign_to_numbers(uploaded_df, to_dict, store_case_mapping):
     return uploaded_df, max_to_dict
 
 # Function to assign incremental IDs
-def assign_incremental_ids(uploaded_df, max_sr_id, max_to_id):
-    uploaded_df = uploaded_df.copy()
-    uploaded_df["sales_return_id"] = range(max_sr_id + 1, max_sr_id + 1 + len(uploaded_df))
-    uploaded_df["transfer_out_id"] = range(max_to_id + 1, max_to_id + 1 + len(uploaded_df))
-    return uploaded_df
+# def assign_incremental_ids(uploaded_df, max_sr_id, max_to_id):
+#     uploaded_df = uploaded_df.copy()
+#     uploaded_df["sales_return_id"] = range(max_sr_id + 1, max_sr_id + 1 + len(uploaded_df))
+#     uploaded_df["transfer_out_id"] = range(max_to_id + 1, max_to_id + 1 + len(uploaded_df))
+#     return uploaded_df
 
-def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
+def update_store_max_sr_to(DB_CONFIG, max_to_dict):
     try:
         # Connect to the database
         conn = mysql.connector.connect(**DB_CONFIG)
@@ -315,8 +313,9 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
         existing_data = {row[0]: {'max_sr': row[1], 'max_to': row[2]} for row in cursor.fetchall()}
 
         # Prepare update statements
-        for store in set(max_sr_dict) | set(max_to_dict):
-            new_sr = max_sr_dict.get(store)
+        # for store in set(max_sr_dict) | set(max_to_dict):
+        for store in set(max_to_dict):
+            # new_sr = max_sr_dict.get(store)
             new_to = max_to_dict.get(store)
 
             # Case-insensitive store check
@@ -325,16 +324,16 @@ def update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict):
             if existing_store:
                 update_query = """
                 UPDATE tbl_wh_store_config 
-                SET max_sr = %s, max_to = %s
+                SET  max_to = %s
                 WHERE store_name = %s
                 """
-                cursor.execute(update_query, (new_sr, new_to, existing_store))
+                cursor.execute(update_query, ( new_to, existing_store))
             else:
                 insert_query = """
-                INSERT INTO tbl_wh_store_config (store_name, max_sr, max_to)
-                VALUES (%s, %s, %s)
+                INSERT INTO tbl_wh_store_config (store_name, max_to)
+                VALUES (%s, %s)
                 """
-                cursor.execute(insert_query, (store, new_sr, new_to))
+                cursor.execute(insert_query, (store, new_to))
 
         # Commit updates
         conn.commit()
@@ -1137,13 +1136,13 @@ elif st.session_state.page == "upload":
                 uploaded_df["barcode"] = uploaded_df["barcode"].astype(str).str.replace('"', '', regex=False)
 
                 filter_tuples = list(
-                    uploaded_df[["stores", "bill no", "combination_id", "barcode"]]
+                    uploaded_df[[ "bill no", "combination_id", "barcode"]]
                     .dropna()
                     .drop_duplicates()
                     .itertuples(index=False, name=None)
                 )
 
-                placeholders = ', '.join(['(%s, %s, %s, %s)'] * len(filter_tuples))
+                placeholders = ', '.join(['( %s, %s, %s)'] * len(filter_tuples))
                 flat_values = [item for tup in filter_tuples for item in tup]
 
                 conn = mysql.connector.connect(**DB_CONFIG)
@@ -1153,7 +1152,7 @@ elif st.session_state.page == "upload":
                     SELECT t2.store_full_name as stores, t1.bill_number as `bill no`, t1.combination_id, t1.barcode
                     FROM tbl_sales t1
                     LEFT JOIN tbl_store_data t2 ON t1.outlets_id = t2.id
-                    WHERE (t2.store_full_name, t1.bill_number, t1.combination_id, t1.barcode) IN ({placeholders}) AND t1.bill_date >= CURDATE() - INTERVAL 181 DAY
+                    WHERE (t1.bill_number, t1.combination_id, t1.barcode) IN ({placeholders}) AND t1.bill_date >= CURDATE() - INTERVAL 181 DAY
                     GROUP BY t2.store_full_name, t1.bill_number, t1.combination_id, t1.barcode;
                 """
 
@@ -1164,8 +1163,8 @@ elif st.session_state.page == "upload":
                 cursor.close()
                 conn.close()
 
-                st.write("df_filtered")
-                st.dataframe(df_filtered)
+                # st.write("df_filtered")
+                # st.dataframe(df_filtered)
 
                 expanded_df = df_filtered.copy()
 
@@ -1197,8 +1196,8 @@ elif st.session_state.page == "upload":
                 # Continue with the updated dataframe
                 uploaded_df = expanded_df
 
-                st.write("Updated uploaded_df (after merge):")
-                st.dataframe(uploaded_df)
+                # st.write("Updated uploaded_df (after merge):")
+                # st.dataframe(uploaded_df)
                 
                 # Filter out inactive stores
                 uploaded_df = filter_inactive_stores(uploaded_df)
@@ -1212,19 +1211,24 @@ elif st.session_state.page == "upload":
                 to_dict = data["to_numbers"]  # Max TO numbers per store
                 store_case_mapping = data["store_case_mapping"]  # Store name case mapping
                 
-                max_sr_id = data["max_sr_id"]  # Max ID from tbl_wh_sales_returns
-                max_to_id = data["max_to_id"]  # Max ID from tbl_wh_transfer_out
+                # max_sr_id = data["max_sr_id"]  # Max ID from tbl_wh_sales_returns
+                # max_to_id = data["max_to_id"]  # Max ID from tbl_wh_transfer_out
 
                 batch_no = data["next_batch_no"] # Max batch id for one time updation
+
+                # st.write("db_df")
+                # st.dataframe(db_df)
             
                 uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
                 
                 # Use the modified functions with store_case_mapping
-                uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
+                uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
+                # uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
                 uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
             
                 if not duplicate_records.empty:
-                    st.warning("⚠️ Duplicate records found! These will not be processed.")
+                    # st.warning("⚠️ Duplicate records found! These will not be processed.")
+                    st.write("Duplicate records")
                     st.dataframe(duplicate_records)
                     
                     csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
@@ -1234,9 +1238,9 @@ elif st.session_state.page == "upload":
                 if not uploaded_df.empty:
                     st.success("✅ Processing non-duplicate data...")
             
-                    uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
+                    # uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
+                    required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id", "barcode"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1289,7 +1293,7 @@ elif st.session_state.page == "upload":
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
                     call_update_sales_returns()
-                    sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
+                    sr_to_max = update_store_max_sr_to(DB_CONFIG, max_to_dict)
             
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
@@ -1344,11 +1348,11 @@ elif st.session_state.page == "upload":
 
                 query = f"""
                     SELECT DISTINCT t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number,
-                                    t2.design_number, SUM(t2.sold_qty), t2.barcode as qty
+                                    t2.design_number, SUM(t2.sold_qty) as qty, t2.barcode
                     FROM minimized_sales_register t1
                     LEFT JOIN tbl_sales t2 ON t1.bill_number = t2.bill_number AND t1.bill_date = t2.bill_date
                     WHERE t1.GST_bill_number IN ({placeholders})
-                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number, t2.barcode;
+                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number;
                 """
                 cursor.execute(query, tuple(gst_bill_no))
                 filtered_data = cursor.fetchall()
@@ -1386,13 +1390,13 @@ elif st.session_state.page == "upload":
 
                 missing_gst_bill_nos = uploaded_df[~uploaded_df['gst bill no'].isin(expanded_df['gst bill no'])]
 
-                st.write("missing_gst_bill_nos")
+                st.write("Invalid gst_bill_nos")
                 st.dataframe(missing_gst_bill_nos)
 
                 uploaded_df = expanded_df
 
-                st.write("uploaded_df")
-                st.dataframe(uploaded_df)
+                # st.write("uploaded_df")
+                # st.dataframe(uploaded_df)
 
                 uploaded_df = filter_inactive_stores(uploaded_df)
             
@@ -1405,19 +1409,24 @@ elif st.session_state.page == "upload":
                 to_dict = data["to_numbers"]  # Max TO numbers per store
                 store_case_mapping = data["store_case_mapping"]  # Store name case mapping
                 
-                max_sr_id = data["max_sr_id"]  # Max ID from tbl_wh_sales_returns
-                max_to_id = data["max_to_id"]  # Max ID from tbl_wh_transfer_out
+                # max_sr_id = data["max_sr_id"]  # Max ID from tbl_wh_sales_returns
+                # max_to_id = data["max_to_id"]  # Max ID from tbl_wh_transfer_out
 
                 batch_no = data["next_batch_no"] # Max batch id for one time updation
+
+                # st.write("db_df")
+                # st.dataframe(db_df)
             
                 uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
                 
                 # Use the modified functions with store_case_mapping
-                uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
+                uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
+                # uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
                 uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
             
                 if not duplicate_records.empty:
-                    st.warning("⚠️ Duplicate records found! These will not be processed.")
+                    # st.warning("⚠️ Duplicate records found! These will not be processed.")
+                    st.write("Duplicate records")
                     st.dataframe(duplicate_records)
                     
                     csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
@@ -1427,9 +1436,9 @@ elif st.session_state.page == "upload":
                 if not uploaded_df.empty:
                     st.success("✅ Processing non-duplicate data...")
             
-                    uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
+                    # uploaded_df = assign_incremental_ids(uploaded_df, max_sr_id, max_to_id)
             
-                    required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id"]
+                    required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id", "barcode"]
                     
                     for col in required_columns:
                         if col not in uploaded_df.columns:
@@ -1485,7 +1494,7 @@ elif st.session_state.page == "upload":
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
                     call_update_sales_returns()
-                    sr_to_max = update_store_max_sr_to(DB_CONFIG, max_sr_dict, max_to_dict)
+                    sr_to_max = update_store_max_sr_to(DB_CONFIG, max_to_dict)
             
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
