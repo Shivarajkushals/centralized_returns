@@ -1140,7 +1140,7 @@ elif st.session_state.page == "upload":
                 uploaded_df = expand_design_numbers(uploaded_df)
                 
                 uploaded_df["qty"] = uploaded_df["combination_id"].astype(str).apply(calculate_qty)
-                uploaded_df["barcode"] = uploaded_df["barcode"].astype(str).str.strip()
+                uploaded_df["barcode"] = uploaded_df["barcode"].astype(str)
                 uploaded_df["barcode"] = uploaded_df["barcode"].astype(str).str.replace('"', '', regex=False)
                 uploaded_df["bill no"] = uploaded_df["bill no"].astype(str).str.strip()
                 uploaded_df["combination_id"] = uploaded_df["combination_id"].astype(str).str.strip()
