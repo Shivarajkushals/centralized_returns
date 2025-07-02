@@ -1175,7 +1175,7 @@ elif st.session_state.page == "upload":
                     GROUP BY t2.store_full_name, msr.GST_bill_number, t1.combination_id, t1.barcode;
                 """
                 
-                cursor.execute(query1, flat_values)
+                cursor.execute(query, flat_values)
                 filtered_data = cursor.fetchall()
                 df_filtered = pd.DataFrame(filtered_data)
 
