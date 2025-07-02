@@ -1165,7 +1165,17 @@ elif st.session_state.page == "upload":
                     GROUP BY t2.store_full_name, t1.bill_number, t1.combination_id, t1.barcode;
                 """
 
-                cursor.execute(query, flat_values)
+                query1 = f"""
+                    SELECT t2.store_full_name as stores, msr.GST_bill_number as `bill no`, t1.combination_id, t1.barcode
+                    FROM tbl_sales t1 
+                    INNER JOIN minimized_sales_register msr 
+                    ON t1.bill_number = msr.bill_number AND t1.bill_date = msr.bill_date
+                    LEFT JOIN tbl_store_data t2 ON t1.outlets_id = t2.id
+                    WHERE (msr.GST_bill_number, t1.combination_id, t1.barcode) IN ({placeholders}) AND t1.bill_date >= CURDATE() - INTERVAL 181 DAY
+                    GROUP BY t2.store_full_name, msr.GST_bill_number, t1.combination_id, t1.barcode;
+                """
+                
+                cursor.execute(query1, flat_values)
                 filtered_data = cursor.fetchall()
                 df_filtered = pd.DataFrame(filtered_data)
 
