@@ -1141,6 +1141,8 @@ elif st.session_state.page == "upload":
                 
                 uploaded_df["qty"] = uploaded_df["combination_id"].astype(str).apply(calculate_qty)
                 uploaded_df["barcode"] = uploaded_df["barcode"].astype(str).str.replace('"', '', regex=False)
+                uploaded_df["bill no"] = uploaded_df["bill no"].astype(str).str.strip()
+                uploaded_df["combination_id"] = uploaded_df["combination_id"].astype(str).str.strip()
 
                 filter_tuples = list(
                     uploaded_df[[ "bill no", "combination_id", "barcode"]]
