@@ -1127,7 +1127,7 @@ elif st.session_state.page == "upload":
                     uploaded_df = pd.read_csv(uploaded_file)
                 else:
                     try:
-                        uploaded_df = pd.read_excel(uploaded_file, engine="openpyxl")
+                        uploaded_df = pd.read_excel(uploaded_file, engine="openpyxl", dtype = str)
                     except ImportError:
                         st.error("Missing dependency: Please install 'openpyxl' using `pip install openpyxl`.")
                 
