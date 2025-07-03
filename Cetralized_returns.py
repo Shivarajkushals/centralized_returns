@@ -207,12 +207,12 @@ def check_duplicates(uploaded_df, db_df):
 
     # Clean and standardize columns
     for col in column_mapping.values():
-        upload_comparison[col] = upload_comparison[col].astype(str).str.strip().str.lower()
-        db_comparison[col] = db_comparison[col].astype(str).str.strip().str.lower()
+        upload_comparison[col] = '"' + upload_comparison[col].astype(str).str.strip().str.lower() + '"'
+        db_comparison[col] = '"' + db_comparison[col].astype(str).str.strip().str.lower() + '"'
         
         # Special handling for barcode: remove double quotes
-        if col == "barcode":
-            db_comparison[col] = db_comparison[col].str.replace('"', '', regex=False)
+        if col == "date":
+            upload_comparison[col] = upload_comparison[col].str.replace(' 00:00:00', '', regex=False)
 
     # Merge to find duplicates
     merged_df = upload_comparison.merge(
@@ -1235,9 +1235,6 @@ elif st.session_state.page == "upload":
                 # max_to_id = data["max_to_id"]  # Max ID from tbl_wh_transfer_out
 
                 batch_no = data["next_batch_no"] # Max batch id for one time updation
-
-                # st.write("db_df")
-                # st.dataframe(db_df)
             
                 uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
                 
