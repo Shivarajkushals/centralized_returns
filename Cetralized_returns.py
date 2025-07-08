@@ -162,6 +162,8 @@ def filter_inactive_stores(uploaded_df):
         
         # Create list of active store names (case insensitive)
         active_store_list = [store['store_name'].lower() for store in active_stores]
+        uploaded_df['stores_lower'] = uploaded_df['stores'].str.lower()
+        inactive_df = uploaded_df[~uploaded_df['stores_lower'].isin(active_store_list)].drop(columns=['stores_lower'])
         
         # Filter the dataframe to keep only active stores
         before_count = len(uploaded_df)
@@ -173,11 +175,11 @@ def filter_inactive_stores(uploaded_df):
             filtered_count = before_count - after_count
             st.warning(f"⚠️ {filtered_count} records from inactive stores were removed from processing.")
         
-        return uploaded_df
+        return uploaded_df, inactive_df
         
     except Exception as e:
         st.error(f"❌ Error filtering stores: {e}")
-        return uploaded_df  # Return original DataFrame if there's an error
+        return uploaded_df, pd.DataFrame()  # Return original DataFrame if there's an error
 
 def check_duplicates(uploaded_df, db_df):
     if db_df.empty:
@@ -1210,8 +1212,11 @@ elif st.session_state.page == "upload":
                 ]
 
                 # Step 3: Output unmatched and updated dataframes
-                st.write("Invalid data entries:")
-                st.dataframe(missing_gst_bill_nos)
+                if missing_gst_bill_nos.empty:
+                    st.info("All the uploaded records are valid")
+                else:
+                    st.write("Invalid data entries:")
+                    st.dataframe(missing_gst_bill_nos)
 
                 # Continue with the updated dataframe
                 uploaded_df = expanded_df
@@ -1220,7 +1225,10 @@ elif st.session_state.page == "upload":
                 # st.dataframe(uploaded_df)
                 
                 # Filter out inactive stores
-                uploaded_df = filter_inactive_stores(uploaded_df)
+                uploaded_df, inactive_df = filter_inactive_stores(uploaded_df)
+
+                st.write("Inactive store data:")
+                st.dataframe(inactive_df)
             
                 data = fetch_all_data()  # Fetch all required data in one go
                 
@@ -1359,15 +1367,15 @@ elif st.session_state.page == "upload":
                 uploaded_df.columns = uploaded_df.columns.str.strip().str.lower()
 
                 # Find duplicate GST Bill Numbers
-                duplicate_gst_bills = uploaded_df[uploaded_df.duplicated('gst bill no', keep=False)]
+                duplicate_gst_bills = uploaded_df[uploaded_df.duplicated('bill no', keep=False)]
 
-                print("Duplicate GST Bill Numbers:")
-                print(duplicate_gst_bills)
+                st.write("Duplicate GST Bill Numbers:")
+                st.dataframe(duplicate_gst_bills)
 
-                # Remove duplicates based on 'gst bill no' and keep the first occurrence
-                uploaded_df = uploaded_df.drop_duplicates(subset='gst bill no', keep='first')
+                # Remove duplicates based on 'bill no' and keep the first occurrence
+                uploaded_df = uploaded_df.drop_duplicates(subset='bill no', keep='first')
 
-                gst_bill_no = uploaded_df['gst bill no'].astype(str).tolist()
+                gst_bill_no = uploaded_df['bill no'].astype(str).tolist()
 
                 placeholders = ', '.join(['%s'] * len(gst_bill_no))
 
@@ -1394,41 +1402,47 @@ elif st.session_state.page == "upload":
                 expanded_df = df_filtered.copy()
 
                 # Step 1: Normalize keys for merge
-                uploaded_df['gst bill no'] = uploaded_df['gst bill no'].astype(str).str.strip().str.upper()
+                uploaded_df['bill no'] = uploaded_df['bill no'].astype(str).str.strip().str.upper()
                 expanded_df['GST_bill_number'] = expanded_df['GST_bill_number'].astype(str).str.strip().str.upper()
 
                 # Step 2: Prepare columns for matching
-                # We'll merge on: gst bill no, combination_id, and design number
+                # We'll merge on: bill no, combination_id, and design number
                 expanded_df.rename(columns={
-                    'GST_bill_number': 'gst bill no',
+                    'GST_bill_number': 'bill no',
                     'design_number': 'design numbers'
                 }, inplace=True)
 
                 # Strip & match column names and types before merge
-                uploaded_df['gst bill no'] = uploaded_df['gst bill no'].astype(str).str.strip().str.upper()
+                uploaded_df['bill no'] = uploaded_df['bill no'].astype(str).str.strip().str.upper()
 
-                expanded_df['gst bill no'] = expanded_df['gst bill no'].astype(str).str.strip().str.upper()
+                expanded_df['bill no'] = expanded_df['bill no'].astype(str).str.strip().str.upper()
                 expanded_df['combination_id'] = expanded_df['combination_id'].astype(str).str.strip()
                 expanded_df['design numbers'] = expanded_df['design numbers'].astype(str).str.strip().str.upper()
 
                 expanded_df = pd.merge(
                     expanded_df,
                     uploaded_df,
-                    on='gst bill no',
+                    on='bill no',
                     how='left'
                 )
 
-                missing_gst_bill_nos = uploaded_df[~uploaded_df['gst bill no'].isin(expanded_df['gst bill no'])]
+                missing_gst_bill_nos = uploaded_df[~uploaded_df['bill no'].isin(expanded_df['bill no'])]
 
-                st.write("Invalid gst_bill_nos")
-                st.dataframe(missing_gst_bill_nos)
+                if missing_gst_bill_nos.empty:
+                    st.info ("All the recodrs are valied from uploaded file")
+                else:
+                    st.write("Invalid gst_bill_nos")
+                    st.dataframe(missing_gst_bill_nos)
 
                 uploaded_df = expanded_df
 
                 # st.write("uploaded_df")
                 # st.dataframe(uploaded_df)
 
-                uploaded_df = filter_inactive_stores(uploaded_df)
+                uploaded_df, inactive_df = filter_inactive_stores(uploaded_df)
+
+                st.write("Inactive store data:")
+                st.dataframe(inactive_df)
             
                 data = fetch_all_data()  # Fetch all required data in one go
                 
@@ -1470,6 +1484,12 @@ elif st.session_state.page == "upload":
             
                     required_columns = [ "stores", "bill no", "design numbers", "qty", "date", "sr_no", "sr amount", "invoice no", "order no", "tender", "combination_id", "barcode"]
                     
+                    # st.write("required_columns")
+                    # st.dataframe(required_columns)
+
+                    # st.write("uploaded_df")
+                    # st.dataframe(uploaded_df)
+
                     for col in required_columns:
                         if col not in uploaded_df.columns:
                             st.error(f"❌ Missing required column: {col}")
