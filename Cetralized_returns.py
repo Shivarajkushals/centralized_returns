@@ -251,7 +251,7 @@ def assign_sr_numbers(uploaded_df, sr_number):
             if sr_main.isdigit():
                 global_max_sr = int(sr_main)
         except Exception as e:
-            print(f"Skipping invalid SR number: {sr_number} — Error: {e}")
+            st.write(f"Skipping invalid SR number: {sr_number} — Error: {e}")
 
     # Now assign new SR numbers
     new_sr_list = []
@@ -335,11 +335,10 @@ def update_store_max_sr_to(DB_CONFIG, max_to_dict):
         # Commit updates
         conn.commit()
 
-        print("✅ Store max SR and TO numbers updated successfully!")
         st.success("✅ Store max SR and TO numbers updated successfully!")
 
     except mysql.connector.Error as err:
-        print("❌ Error:", err)
+        st.write("❌ Error:", err)
         st.error(f"❌ Error updating store config: {err}")
 
 def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
@@ -415,7 +414,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
         return df_sales_1, df_sales_2
 
     except mysql.connector.Error as err:
-        print("❌ Error fetching sales data:", err)
+        st.write("❌ Error fetching sales data:", err)
         return None, None
 
 def call_update_sales_returns():
@@ -427,6 +426,18 @@ def call_update_sales_returns():
         cursor.close()
         conn.close()
         st.success("✅ Stored procedure 'UpdateSalesReturns' executed successfully.")
+    except Exception as e:
+        st.error(f"❌ Error calling stored procedure: {e}")
+
+def call_update_sales_returns1():
+    try:
+        conn = mysql.connector.connect(**DB_CONFIG)
+        cursor = conn.cursor()
+        cursor.callproc("UpdateSalesReturns1")
+        conn.commit()
+        cursor.close()
+        conn.close()
+        st.success("✅ Stored procedure 'UpdateSalesReturns1' executed successfully.")
     except Exception as e:
         st.error(f"❌ Error calling stored procedure: {e}")
 
@@ -1317,12 +1328,13 @@ elif st.session_state.page == "upload":
             
                     rows_inserted = insert_data(sr_df, "tbl_wh_sales_returns")
                     rows_inserted = insert_data(to_df, "tbl_wh_transfer_out")
-                    call_update_sales_returns()
+                    call_update_sales_returns1()
                     sr_to_max = update_store_max_sr_to(DB_CONFIG, max_to_dict)
             
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
                     
+                    uploaded_df = uploaded_df.drop(['stores_lower', 'to_no'], axis=1)
                     csv_uploaded = uploaded_df.to_csv(index=False).encode("utf-8")
                     st.download_button("Download Updated CSV", csv_uploaded, "updated_data.csv", "text/csv")
             
@@ -1549,6 +1561,7 @@ elif st.session_state.page == "upload":
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_sales_returns.")
                     st.success(f"✅ Inserted {rows_inserted} records into tbl_wh_transfer_out.")
                     
+                    uploaded_df = uploaded_df.drop(['stores_lower', 'to_no'], axis=1)
                     csv_uploaded = uploaded_df.to_csv(index=False).encode("utf-8")
                     st.download_button("Download Updated CSV", csv_uploaded, "updated_data.csv", "text/csv")
             
@@ -1607,7 +1620,7 @@ elif st.session_state.page == "upload":
 
                     query1 = f"""
                         select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
-                        round((bill_amount_1) + sum(purchase_value),2) as net_amount, sum(item_gross) as return_item_amount, sum(discount_amount) as discount_amount,
+                        round(sum(bill_amount_1) + sum(packing_charges),2) as net_amount, sum(item_gross) as return_item_amount, sum(discount_amount) as discount_amount,
                         sales_tran_refno, returns_tran_refno,
                         customer_state, mobile_number, gst_billno, gstamt, cgst_amt, sgst_amt_ugst_amt, barcode, hsn_sac_code
                         from tbl_wh_sales_returns
