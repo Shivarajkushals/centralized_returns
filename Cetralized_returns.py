@@ -1451,9 +1451,6 @@ elif st.session_state.page == "upload":
 
                 uploaded_df = expanded_df
 
-                st.write('uploaded_df')
-                st.dataframe(uploaded_df)
-
                 # st.write("uploaded_df")
                 # st.dataframe(uploaded_df)
 
