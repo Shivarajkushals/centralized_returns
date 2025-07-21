@@ -1413,6 +1413,12 @@ elif st.session_state.page == "upload":
 
                 expanded_df = df_filtered.copy()
 
+                if expanded_df.empty:
+                    st.info ("All the recodrs are valied from uploaded file")
+                else:
+                    st.write("expanded_df")
+                    st.dataframe(expanded_df)
+                
                 # Step 1: Normalize keys for merge
                 uploaded_df['bill no'] = uploaded_df['bill no'].astype(str).str.strip().str.upper()
                 expanded_df['GST_bill_number'] = expanded_df['GST_bill_number'].astype(str).str.strip().str.upper()
