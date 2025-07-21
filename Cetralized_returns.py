@@ -1238,8 +1238,9 @@ elif st.session_state.page == "upload":
                 # Filter out inactive stores
                 uploaded_df, inactive_df = filter_inactive_stores(uploaded_df)
 
-                st.write("Inactive store data:")
-                st.dataframe(inactive_df)
+                if not inactive_df.empty:
+                    st.write("Inactive store data:")
+                    st.dataframe(inactive_df)
             
                 data = fetch_all_data()  # Fetch all required data in one go
                 
@@ -1381,8 +1382,9 @@ elif st.session_state.page == "upload":
                 # Find duplicate GST Bill Numbers
                 duplicate_gst_bills = uploaded_df[uploaded_df.duplicated('bill no', keep=False)]
 
-                st.write("Duplicate GST Bill Numbers:")
-                st.dataframe(duplicate_gst_bills)
+                if not duplicate_gst_bills.empty:
+                    st.write("Duplicate GST Bill Numbers:")
+                    st.dataframe(duplicate_gst_bills)
 
                 # Remove duplicates based on 'bill no' and keep the first occurrence
                 uploaded_df = uploaded_df.drop_duplicates(subset='bill no', keep='first')
@@ -1412,9 +1414,6 @@ elif st.session_state.page == "upload":
                 conn.close()
 
                 expanded_df = df_filtered.copy()
-
-                st.write ('expanded_df')
-                st.dataframe(expanded_df)
                 
                 # Step 1: Normalize keys for merge
                 uploaded_df['bill no'] = uploaded_df['bill no'].astype(str).str.strip().str.upper()
@@ -1456,8 +1455,9 @@ elif st.session_state.page == "upload":
 
                 uploaded_df, inactive_df = filter_inactive_stores(uploaded_df)
 
-                st.write("Inactive store data:")
-                st.dataframe(inactive_df)
+                if not inactive_df.empty:
+                    st.write("Inactive store data:")
+                    st.dataframe(inactive_df)
             
                 data = fetch_all_data()  # Fetch all required data in one go
                 
