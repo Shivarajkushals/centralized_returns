@@ -1398,7 +1398,7 @@ elif st.session_state.page == "upload":
 
                 query = f"""
                     SELECT DISTINCT t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number,
-                                    t2.design_number, SUM(t2.sold_qty) as qty, t2.barcode
+                                    t2.design_number, sold_qty as qty, t2.barcode
                     FROM minimized_sales_register t1
                     LEFT JOIN tbl_sales t2 ON t1.bill_number = t2.bill_number AND t1.bill_date = t2.bill_date
                     WHERE t1.GST_bill_number IN ({placeholders})
