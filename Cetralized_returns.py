@@ -1402,7 +1402,7 @@ elif st.session_state.page == "upload":
                     FROM minimized_sales_register t1
                     LEFT JOIN tbl_sales t2 ON t1.bill_number = t2.bill_number AND t1.bill_date = t2.bill_date
                     WHERE t1.GST_bill_number IN ({placeholders})
-                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number;
+                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number, t2.sold_qty;
                 """
                 cursor.execute(query, tuple(gst_bill_no))
                 filtered_data = cursor.fetchall()
