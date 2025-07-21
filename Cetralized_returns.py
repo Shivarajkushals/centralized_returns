@@ -1626,7 +1626,7 @@ elif st.session_state.page == "upload":
 
                     query1 = f"""
                         select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
-                        round(sum(bill_amount_1) + sum(packing_charges),2) as net_amount, sum(item_gross) as return_item_amount, sum(discount_amount) as discount_amount,
+                        round(sum(bill_amount_1) + sum(packing_charges),2) as net_amount, sum(sold_qty) as qty, sum(item_gross) as return_item_amount, sum(discount_amount) as discount_amount,
                         sales_tran_refno, returns_tran_refno,
                         customer_state, mobile_number, gst_billno, gstamt, cgst_amt, sgst_amt_ugst_amt, barcode, hsn_sac_code
                         from tbl_wh_sales_returns
