@@ -1412,6 +1412,9 @@ elif st.session_state.page == "upload":
                 conn.close()
 
                 expanded_df = df_filtered.copy()
+
+                st.write ('expanded_df')
+                st.dataframe(expanded_df)
                 
                 # Step 1: Normalize keys for merge
                 uploaded_df['bill no'] = uploaded_df['bill no'].astype(str).str.strip().str.upper()
@@ -1448,6 +1451,9 @@ elif st.session_state.page == "upload":
 
                 uploaded_df = expanded_df
 
+                st.write('uploaded_df')
+                st.dataframe(uploaded_df)
+
                 # st.write("uploaded_df")
                 # st.dataframe(uploaded_df)
 
@@ -1475,6 +1481,18 @@ elif st.session_state.page == "upload":
             
                 uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
                 
+                # if not upload_comparison.empty:
+                #     st.write('upload_comparison')
+                #     st.dataframe(upload_comparison)
+
+                # if not db_comparison.empty:
+                #     st.write('db_comparison')
+                #     st.dataframe(db_comparison)
+
+                # if not merged_df.empty:
+                #     st.write('merged_df')
+                #     st.dataframe(merged_df)
+
                 # Use the modified functions with store_case_mapping
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
                 # uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
@@ -1519,7 +1537,8 @@ elif st.session_state.page == "upload":
                         "bill no": "bill_no", 
                         "design numbers": "design_no", 
                         "qty": "Sold_qty", 
-                        "date": "return_date"
+                        "date": "return_date",
+                        "barcode": "barcode"
                     }, inplace=True)
                     
                     # Adding additional constant columns
