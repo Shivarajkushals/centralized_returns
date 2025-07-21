@@ -241,7 +241,7 @@ def check_duplicates(uploaded_df, db_df):
     if not duplicate_records.empty:
         st.warning(f"⚠️ Found {len(duplicate_records)} duplicate records. These will not be processed.")
 
-    return non_duplicate_df, duplicate_records, upload_comparison, db_comparison, merged_df
+    return non_duplicate_df, duplicate_records
 
 # Function to assign SR numbers and return max SR per store
 def assign_sr_numbers(uploaded_df, sr_number):
@@ -1260,7 +1260,7 @@ elif st.session_state.page == "upload":
 
                 batch_no = data["next_batch_no"] # Max batch id for one time updation
             
-                uploaded_df, duplicate_records, upload_comparison, db_comparison, merged_df= check_duplicates(uploaded_df, db_df)
+                uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
                 
                 # Use the modified functions with store_case_mapping
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
@@ -1407,7 +1407,7 @@ elif st.session_state.page == "upload":
                     FROM minimized_sales_register t1
                     LEFT JOIN tbl_sales t2 ON t1.bill_number = t2.bill_number AND t1.bill_date = t2.bill_date
                     WHERE t1.GST_bill_number IN ({placeholders})
-                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number, t2.sold_qty, t2.id;
+                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number, t2.barcode;
                 """
                 cursor.execute(query, tuple(gst_bill_no))
                 filtered_data = cursor.fetchall()
@@ -1478,28 +1478,13 @@ elif st.session_state.page == "upload":
                 # st.write("db_df")
                 # st.dataframe(db_df)
             
-                uploaded_df, duplicate_records, upload_comparison, db_comparison, merged_df = check_duplicates(uploaded_df, db_df)
+                uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
                 
                 # Use the modified functions with store_case_mapping
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
                 # uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
                 uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
-
-                if not upload_comparison.empty:
-                    # st.warning("⚠️ Duplicate records found! These will not be processed.")
-                    st.write("upload_comparison")
-                    st.dataframe(upload_comparison)
-
-                if not db_comparison.empty:
-                    # st.warning("⚠️ Duplicate records found! These will not be processed.")
-                    st.write("db_comparison")
-                    st.dataframe(db_comparison)
-
-                if not merged_df.empty:
-                    # st.warning("⚠️ Duplicate records found! These will not be processed.")
-                    st.write("merged_df")
-                    st.dataframe(merged_df)
-
+            
                 if not duplicate_records.empty:
                     # st.warning("⚠️ Duplicate records found! These will not be processed.")
                     st.write("Duplicate records")
