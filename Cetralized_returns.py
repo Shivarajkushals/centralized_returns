@@ -1398,11 +1398,11 @@ elif st.session_state.page == "upload":
 
                 query = f"""
                     SELECT DISTINCT t2.combination_id, t1.bill_date , t1.bill_number, t1.GST_bill_number,
-                                    t2.design_number, sold_qty as qty, t2.barcode
+                                    t2.design_number, sum(sold_qty) as qty, t2.barcode
                     FROM minimized_sales_register t1
                     LEFT JOIN tbl_sales t2 ON t1.bill_number = t2.bill_number AND t1.bill_date = t2.bill_date
                     WHERE t1.GST_bill_number IN ({placeholders})
-                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number, t2.sold_qty;
+                    GROUP BY t2.combination_id, t1.bill_date, t1.bill_number, t1.GST_bill_number, t2.design_number, t2.sold_qty, t2.id;
                 """
                 cursor.execute(query, tuple(gst_bill_no))
                 filtered_data = cursor.fetchall()
