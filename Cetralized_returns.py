@@ -371,7 +371,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
             ON t1.outlet_name = t3.store_name
         LEFT JOIN tbl_wh_transfer_out t4
             ON t1.id = t4.sr_id
-        WHERE t1.return_date BETWEEN %s AND %s
+        WHERE t1.created_date BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
         GROUP BY 
             t1.design_no, 
@@ -396,7 +396,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
         FROM tbl_wh_sales_returns t1
         LEFT JOIN tbl_item_data t2 
             ON t1.combination_id = t2.combination_id
-        WHERE t1.return_date BETWEEN %s AND %s
+        WHERE t1.created_date BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
         GROUP BY 
             t1.design_no
@@ -1638,7 +1638,7 @@ elif st.session_state.page == "upload":
                         select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
                         round(sum(bill_amount_1) + sum(packing_charges),2) as total_amount, sum(sold_qty) as qty, sum(item_gross) as item_gross, sum(discount_amount) as discount_amount,
                         sales_tran_refno, returns_tran_refno, round(sum(bill_amount_1),2) as item_charges, round(sum(packing_charges),2) as packing_charges,
-                        customer_state, mobile_number, gst_billno, summ(gstamt) as gst_amt, sum(cgst_amt) as cgst_amt , sum(sgst_amt_ugst_amt) as sgst_amt_ugst_amt
+                        customer_state, mobile_number, gst_billno, sum(gstamt) as gst_amt, sum(cgst_amt) as cgst_amt , sum(sgst_amt_ugst_amt) as sgst_amt_ugst_amt
                         from tbl_wh_sales_returns
                         WHERE created_date BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
