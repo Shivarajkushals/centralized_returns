@@ -1625,7 +1625,7 @@ elif st.session_state.page == "upload":
 
                     query = f"""
                         SELECT * FROM tbl_wh_sales_returns
-                        WHERE return_date BETWEEN %s AND %s
+                        WHERE created_date BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
                     """
 
@@ -1636,11 +1636,11 @@ elif st.session_state.page == "upload":
 
                     query1 = f"""
                         select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
-                        round(sum(bill_amount_1) + sum(packing_charges),2) as net_amount, sum(sold_qty) as qty, sum(item_gross) as return_item_amount, sum(discount_amount) as discount_amount,
-                        sales_tran_refno, returns_tran_refno,
-                        customer_state, mobile_number, gst_billno, gstamt, cgst_amt, sgst_amt_ugst_amt, barcode, hsn_sac_code
+                        round(sum(bill_amount_1) + sum(packing_charges),2) as total_amount, sum(sold_qty) as qty, sum(item_gross) as item_gross, sum(discount_amount) as discount_amount,
+                        sales_tran_refno, returns_tran_refno, round(sum(bill_amount_1),2) as item_charges, round(sum(packing_charges),2) as packing_charges,
+                        customer_state, mobile_number, gst_billno, summ(gstamt) as gst_amt, sum(cgst_amt) as cgst_amt , sum(sgst_amt_ugst_amt) as sgst_amt_ugst_amt
                         from tbl_wh_sales_returns
-                        WHERE return_date BETWEEN %s AND %s
+                        WHERE created_date BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
                         group by outlet_name, bill_no;
                     """
@@ -1733,7 +1733,7 @@ elif st.session_state.page == "upload":
 
                     query = f"""
                         SELECT * FROM tbl_wh_transfer_out
-                        WHERE return_date BETWEEN %s AND %s
+                        WHERE created_date BETWEEN %s AND %s
                         AND outlet_name_from IN ({store_placeholders})
                     """
 
@@ -1746,7 +1746,7 @@ elif st.session_state.page == "upload":
                         select branch_recived as `branch_name_(received_to)`, outlet_name_from as `outlet_name_(sent_from)`, transaction_refno,
                         transfer_out_date, sum(qty) as Tout_qty, sum(item_cost) as pur_price, sum(mrp) as MRP
                         from tbl_wh_transfer_out
-                        WHERE return_date BETWEEN %s AND %s
+                        WHERE created_date BETWEEN %s AND %s
                         AND outlet_name_from IN ({store_placeholders})
                         group by branch_recived, outlet_name_from, transaction_refno, transfer_out_date, qty, item_cost, mrp
                     """
