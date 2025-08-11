@@ -1112,8 +1112,22 @@ elif st.session_state.page == "Config":
     
 # Add this inside your application code after your current page options
 elif st.session_state.page == "upload":    
-    page = st.sidebar.radio("Select Page", ["RTV page", "RTO page", "SR page", "TO page"])  # Added "Config page"
+    options = ["RTV page", "RTO page", "SR page", "TO page"]
+
+    if "sidebar_open" not in st.session_state:
+        st.session_state.sidebar_open = True
     
+    # Use the same key for both radios so selection persists
+    if st.session_state.sidebar_open:
+        page = st.sidebar.radio("Select Page", options, key="upload_page")
+    else:
+        page = st.radio("Select Page", options, key="upload_page")
+    
+    top_cols = st.columns([9, 1])
+    with top_cols[1]:
+        if st.button("Sidebar"):
+            st.session_state.sidebar_open = not st.session_state.sidebar_open
+
     # Existing page code remains unchanged
     if page == "RTV page":
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
