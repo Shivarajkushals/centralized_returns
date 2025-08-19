@@ -273,6 +273,10 @@ def assign_to_numbers(uploaded_df, to_dict, store_case_mapping):
     upload_store_mapping = {store.lower(): store for store in uploaded_df["stores"].unique()}
 
     for store_lower in [s.lower() for s in uploaded_df["stores"].unique()]:
+        # --- SKIP BLR - WAREHOUSE ---
+        if store_lower == "blr - warehouse".lower():
+            continue  # Skip assigning any to_no
+
         # Get the original cased store name from the database, or from uploaded data
         original_store = store_case_mapping.get(store_lower, upload_store_mapping.get(store_lower))
         
@@ -291,6 +295,7 @@ def assign_to_numbers(uploaded_df, to_dict, store_case_mapping):
         max_to_dict[original_store] = new_to
 
     return uploaded_df, max_to_dict
+
 
 # Function to assign incremental IDs
 # def assign_incremental_ids(uploaded_df, max_sr_id, max_to_id):
@@ -1276,7 +1281,7 @@ elif st.session_state.page == "upload":
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
                 # uploaded_df, max_sr_dict = assign_sr_numbers(uploaded_df, sr_dict, store_case_mapping)
                 uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
-            
+
                 if not duplicate_records.empty:
                     # st.warning("⚠️ Duplicate records found! These will not be processed.")
                     st.write("Duplicate records")
@@ -1323,7 +1328,8 @@ elif st.session_state.page == "upload":
                     sr_df["batch_no"] = batch_no 
                     sr_df["RTO"] = 0
             
-                    to_df = uploaded_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
+                    to_df = uploaded_df[uploaded_df["to_no"] != ""].copy()
+                    to_df = to_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
                                           "date": "return_date",
@@ -1563,7 +1569,8 @@ elif st.session_state.page == "upload":
                     sr_df["batch_no"] = batch_no 
                     sr_df["RTO"] = 1
             
-                    to_df = uploaded_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
+                    to_df = uploaded_df[uploaded_df["to_no"] != ""].copy()
+                    to_df = to_df[[ "stores", "to_no", "qty", "date", "combination_id", "bill no"]].copy()
                     to_df.rename(columns={"stores": "outlet_name_from",
                                           "to_no": "transfer_out_no",
                                           "sales_return_id": "sr_id",
