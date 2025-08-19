@@ -371,7 +371,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
             ON t1.outlet_name = t3.store_name
         LEFT JOIN tbl_wh_transfer_out t4
             ON t1.id = t4.sr_id
-        WHERE t1.created_date BETWEEN %s AND %s
+        WHERE date(t1.created_date) BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
         GROUP BY 
             t1.design_no, 
@@ -396,7 +396,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
         FROM tbl_wh_sales_returns t1
         LEFT JOIN tbl_item_data t2 
             ON t1.combination_id = t2.combination_id
-        WHERE t1.created_date BETWEEN %s AND %s
+        WHERE date(t1.created_date) BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
         GROUP BY 
             t1.design_no
@@ -1639,7 +1639,7 @@ elif st.session_state.page == "upload":
 
                     query = f"""
                         SELECT * FROM tbl_wh_sales_returns
-                        WHERE created_date BETWEEN %s AND %s
+                        WHERE date(created_date) BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
                     """
 
@@ -1654,7 +1654,7 @@ elif st.session_state.page == "upload":
                         sales_tran_refno, returns_tran_refno, round(sum(bill_amount_1),2) as item_charges, round(sum(packing_charges),2) as packing_charges,
                         customer_state, mobile_number, gst_billno, sum(gstamt) as gst_amt, sum(cgst_amt) as cgst_amt , sum(sgst_amt_ugst_amt) as sgst_amt_ugst_amt
                         from tbl_wh_sales_returns
-                        WHERE created_date BETWEEN %s AND %s
+                        WHERE date(created_date) BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
                         group by outlet_name, bill_no;
                     """
@@ -1747,7 +1747,7 @@ elif st.session_state.page == "upload":
 
                     query = f"""
                         SELECT * FROM tbl_wh_transfer_out
-                        WHERE created_date BETWEEN %s AND %s
+                        WHERE date(created_date) BETWEEN %s AND %s
                         AND outlet_name_from IN ({store_placeholders})
                     """
 
@@ -1760,7 +1760,7 @@ elif st.session_state.page == "upload":
                         select branch_recived as `branch_name_(received_to)`, outlet_name_from as `outlet_name_(sent_from)`, transaction_refno,
                         transfer_out_date, sum(qty) as Tout_qty, sum(item_cost) as pur_price, sum(mrp) as MRP
                         from tbl_wh_transfer_out
-                        WHERE created_date BETWEEN %s AND %s
+                        WHERE date(created_date) BETWEEN %s AND %s
                         AND outlet_name_from IN ({store_placeholders})
                         group by branch_recived, outlet_name_from, transaction_refno, transfer_out_date, qty, item_cost, mrp
                     """
