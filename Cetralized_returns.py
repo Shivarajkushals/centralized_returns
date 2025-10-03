@@ -1150,7 +1150,7 @@ elif st.session_state.page == "upload":
             )
         with col2:
             # Streamlit UI
-            st.title("Upload the excel file to generate SR and TO files")
+            st.title("RTV Page Upload")
             
             uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx"])
             
@@ -1380,7 +1380,7 @@ elif st.session_state.page == "upload":
             )
         with col2:
             # Streamlit UI
-            st.title("Upload the excel file to generate SR and TO files")
+            st.title("RTO Page Upload")
             
             uploaded_file = st.file_uploader("Choose a file", type=["csv", "xlsx"])
             
