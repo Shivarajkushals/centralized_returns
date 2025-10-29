@@ -1549,7 +1549,6 @@ elif st.session_state.page == "upload":
                     query = f"""
                 SELECT 
                     s.*,
-                    t1.store_full_name,
                     t2.name AS "shipping state"
                 FROM tbl_wh_sales_returns s
                 LEFT JOIN tbl_store_data t1 
