@@ -1504,14 +1504,14 @@ elif st.session_state.page == "upload":
     # Fix for SR page
     elif selected_page == "SR page":
         st.subheader("🔍 Filter Sales returns Data")
-
+    
         # UI filters
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("Start Date", key="sr_start")
         with col2:
             end_date = st.date_input("End Date", key="sr_end")
-
+    
         # Fetch distinct store names for dropdown
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
@@ -1519,54 +1519,47 @@ elif st.session_state.page == "upload":
         store_names = [row[0] for row in cursor.fetchall()]
         cursor.close()
         conn.close()
-
-        # Add "Select All" checkbox
+    
+        # For SR Page - replace the checkbox and multiselect section:
         select_all = st.checkbox("Select All Stores", key="sr_select_all")
         
-        # Determine default selection - force refresh when checkbox changes
         if select_all:
-            default_stores = store_names
+            selected_stores = st.multiselect(
+                "Select Store(s)", 
+                store_names, 
+                default=store_names,
+                key="sr_stores",
+                disabled=True  # Disable manual selection when "Select All" is checked
+            )
         else:
-            # Check if stores are currently selected
-            if "sr_stores" in st.session_state and st.session_state.sr_stores == store_names:
-                # If all stores were selected and checkbox is now unchecked, clear selection
-                default_stores = []
-                # Force clear the session state
-                if "sr_stores" in st.session_state:
-                    del st.session_state["sr_stores"]
-            else:
-                default_stores = st.session_state.get("sr_stores", [])
-        
-        selected_stores = st.multiselect(
-            "Select Store(s)", 
-            store_names, 
-            default=default_stores,
-            key="sr_stores"
-        )
-
+            selected_stores = st.multiselect(
+                "Select Store(s)", 
+                store_names,
+                key="sr_stores"
+            )
+    
         if st.button("✅ Continue", key="sr_continue"):
             if not selected_stores:
                 st.warning("Please select at least one store.")
             else:
-                # ... rest of your SR page code ...
                 try:
                     conn = mysql.connector.connect(**DB_CONFIG)
                     cursor = conn.cursor(dictionary=True)
-
+    
                     # Format the placeholders and store list
                     store_placeholders = ','.join(['%s'] * len(selected_stores))
-
+    
                     query = f"""
                         SELECT * FROM tbl_wh_sales_returns
                         WHERE date(created_date) BETWEEN %s AND %s
                         AND outlet_name IN ({store_placeholders})
                     """
-
+    
                     params = [start_date, end_date] + selected_stores
                     cursor.execute(query, params)
                     filtered_data = cursor.fetchall()
                     df_filtered = pd.DataFrame(filtered_data)
-
+    
                     query1 = f"""
                         select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
                         round(sum(bill_amount_1) + sum(packing_charges),2) as total_amount, sum(sold_qty) as qty, sum(item_gross) as item_gross, sum(discount_amount) as discount_amount,
@@ -1577,21 +1570,21 @@ elif st.session_state.page == "upload":
                         AND outlet_name IN ({store_placeholders})
                         group by outlet_name, bill_no;
                     """
-
+    
                     params1 = [start_date, end_date] + selected_stores
                     cursor.execute(query1, params1)
                     filtered_data1 = cursor.fetchall()
                     df_filtered1 = pd.DataFrame(filtered_data1)
-
+    
                     cursor.close()
                     conn.close()
-
+    
                     if df_filtered.empty:
                         st.info("No data found for the selected filters.")
                     else:
                         st.write("📦 Item_wise data from `tbl_wh_sales_returns`:")
                         st.dataframe(df_filtered.reset_index(drop=True))
-
+    
                     if df_filtered1.empty:
                         st.info("No data found for the selected filters.")
                     else:
@@ -1600,28 +1593,28 @@ elif st.session_state.page == "upload":
                 except Exception as e:
                     st.error(f"❌ Error querying data: {e}")
                     
-            _, df_sales_2 = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
-            to_display = pd.DataFrame(df_sales_2)
-
-            st.write("SR PDF output:")
-            display_df = to_display
-            st.dataframe(display_df)
-
-            if df_sales_2 is not None and not df_sales_2.empty:
-                display_sales_return_pdfs(df_sales_2)
-
-
+                _, df_sales_2 = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
+                to_display = pd.DataFrame(df_sales_2)
+    
+                st.write("SR PDF output:")
+                display_df = to_display
+                st.dataframe(display_df)
+    
+                if df_sales_2 is not None and not df_sales_2.empty:
+                    display_sales_return_pdfs(df_sales_2)
+    
+    
     # Fix for TO page
     elif selected_page == "TO page":
         st.subheader("🔍 Filter Transfer Out Data")
-
+    
         # UI filters
         col1, col2 = st.columns(2)
         with col1:
             start_date = st.date_input("Start Date", key="to_start")
         with col2:
             end_date = st.date_input("End Date", key="to_end")
-
+    
         # Fetch distinct store names for dropdown
         conn = mysql.connector.connect(**DB_CONFIG)
         cursor = conn.cursor()
@@ -1629,31 +1622,25 @@ elif st.session_state.page == "upload":
         store_names = [row[0] for row in cursor.fetchall()]
         cursor.close()
         conn.close()
-
-        # Add "Select All Stores" checkbox
+    
+        # For TO Page - same pattern:
         select_all = st.checkbox("Select All Stores", key="to_select_all")
-
-        # Determine default selection - force refresh when checkbox changes
+        
         if select_all:
-            default_stores = store_names
+            selected_stores = st.multiselect(
+                "Select Store(s)", 
+                store_names, 
+                default=store_names,
+                key="to_stores",
+                disabled=True  # Disable manual selection when "Select All" is checked
+            )
         else:
-            # Check if stores are currently selected
-            if "to_stores" in st.session_state and st.session_state.to_stores == store_names:
-                # If all stores were selected and checkbox is now unchecked, clear selection
-                default_stores = []
-                # Force clear the session state
-                if "to_stores" in st.session_state:
-                    del st.session_state["to_stores"]
-            else:
-                default_stores = st.session_state.get("to_stores", [])
-
-        selected_stores = st.multiselect(
-            "Select Store(s)", 
-            store_names, 
-            default=default_stores,
-            key="to_stores"
-        )
-
+            selected_stores = st.multiselect(
+                "Select Store(s)", 
+                store_names,
+                key="to_stores"
+            )
+    
         if st.button("✅ Continue", key="to_continue"):
             if not selected_stores:
                 st.warning("Please select at least one store.")
@@ -1661,21 +1648,21 @@ elif st.session_state.page == "upload":
                 try:
                     conn = mysql.connector.connect(**DB_CONFIG)
                     cursor = conn.cursor(dictionary=True)
-
+    
                     # Format the placeholders and store list
                     store_placeholders = ','.join(['%s'] * len(selected_stores))
-
+    
                     query = f"""
                         SELECT * FROM tbl_wh_transfer_out
                         WHERE date(created_date) BETWEEN %s AND %s
                         AND outlet_name_from IN ({store_placeholders})
                     """
-
+    
                     params = [start_date, end_date] + selected_stores
                     cursor.execute(query, params)
                     filtered_data = cursor.fetchall()
                     df_filtered = pd.DataFrame(filtered_data)
-
+    
                     query1 = f"""
                         select branch_recived as `branch_name_(received_to)`, outlet_name_from as `outlet_name_(sent_from)`, transaction_refno,
                         transfer_out_date, sum(qty) as Tout_qty, sum(item_cost) as pur_price, sum(mrp) as MRP
@@ -1684,21 +1671,21 @@ elif st.session_state.page == "upload":
                         AND outlet_name_from IN ({store_placeholders})
                         group by branch_recived, outlet_name_from, transaction_refno, transfer_out_date, qty, item_cost, mrp
                     """
-
+    
                     params1 = [start_date, end_date] + selected_stores
                     cursor.execute(query1, params1)
                     filtered_data1 = cursor.fetchall()
                     df_filtered1 = pd.DataFrame(filtered_data1)
-
+    
                     cursor.close()
                     conn.close()
-
+    
                     if df_filtered.empty:
                         st.info("No data found for the selected filters.")
                     else:
                         st.write("📦 Filtered data from `tbl_wh_transfer_out`:")
                         st.dataframe(df_filtered.reset_index(drop=True))
-
+    
                     if df_filtered1.empty:
                         st.info("No data found for the selected filters.")
                     else:
@@ -1708,27 +1695,27 @@ elif st.session_state.page == "upload":
                 except Exception as e:
                     st.error(f"❌ Error querying data: {e}")
             
-            df_sales_1, _ = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
-            to_display = pd.DataFrame(df_sales_1)
+                df_sales_1, _ = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
+                to_display = pd.DataFrame(df_sales_1)
+                
+                # Display sales data
+                st.write("TO PDF output:")
+                if isinstance(df_sales_1, pd.DataFrame) and not df_sales_1.empty:
+                    st.dataframe(df_sales_1)
             
-            # Display sales data
-            st.write("TO PDF output:")
-            if isinstance(df_sales_1, pd.DataFrame) and not df_sales_1.empty:
-                st.dataframe(df_sales_1)
-        
-                # Generate PDFs
-                pdf_files = generate_pdfs_from_df(df_sales_1)
-        
-                # Streamlit UI for downloading PDFs
-                st.header("Download Sales Reports")
-                for pdf_file in pdf_files:
-                    outlet_name = os.path.basename(pdf_file).replace(".pdf", "")  # Extract outlet name
-                    with open(pdf_file, "rb") as f:
-                        st.download_button(
-                            label=f"📥 Download {outlet_name}.pdf",
-                            data=f,
-                            file_name=f"{outlet_name}.pdf",
-                            mime="application/pdf"
-                        )
-            else:
-                st.error("❌ No data available to generate PDFs.")
+                    # Generate PDFs
+                    pdf_files = generate_pdfs_from_df(df_sales_1)
+            
+                    # Streamlit UI for downloading PDFs
+                    st.header("Download Sales Reports")
+                    for pdf_file in pdf_files:
+                        outlet_name = os.path.basename(pdf_file).replace(".pdf", "")  # Extract outlet name
+                        with open(pdf_file, "rb") as f:
+                            st.download_button(
+                                label=f"📥 Download {outlet_name}.pdf",
+                                data=f,
+                                file_name=f"{outlet_name}.pdf",
+                                mime="application/pdf"
+                            )
+                else:
+                    st.error("❌ No data available to generate PDFs.")
