@@ -188,7 +188,9 @@ def check_duplicates(uploaded_df, db_df):
         
         # Special handling for barcode: remove double quotes
         if col == "date":
-            upload_comparison[col] = upload_comparison[col].str.replace(' 00:00:00', '', regex=False)
+            # Convert to datetime safely, then format
+            upload_comparison[col] = pd.to_datetime(upload_comparison[col], errors='coerce').dt.strftime('%Y-%m-%d')
+            db_comparison[col] = pd.to_datetime(db_comparison[col], errors='coerce').dt.strftime('%Y-%m-%d')
 
     # Merge to find duplicates
     merged_df = upload_comparison.merge(
