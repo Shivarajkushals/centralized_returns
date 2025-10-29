@@ -1501,6 +1501,7 @@ elif st.session_state.page == "upload":
                 else:
                     st.warning("⚠️ No new data to process after removing duplicates.")
     
+    # Fix for SR page
     elif selected_page == "SR page":
         st.subheader("🔍 Filter Sales returns Data")
 
@@ -1519,26 +1520,35 @@ elif st.session_state.page == "upload":
         cursor.close()
         conn.close()
 
-        # Initialize session state for SR stores if not exists
-        if "sr_select_all_checked" not in st.session_state:
-            st.session_state.sr_select_all_checked = False
-
         # Add "Select All" checkbox
-        select_all = st.checkbox("Select All Stores", key="sr_select_all", value=st.session_state.sr_select_all_checked)
-
-        # Update session state when checkbox changes
-        if select_all != st.session_state.sr_select_all_checked:
-            st.session_state.sr_select_all_checked = select_all
-            st.rerun()
-
-        # Use store_names as default if "Select All" is checked
-        default_stores = store_names if st.session_state.sr_select_all_checked else []
-        selected_stores = st.multiselect("Select Store(s)", store_names, default=default_stores, key="sr_stores")
+        select_all = st.checkbox("Select All Stores", key="sr_select_all")
+        
+        # Determine default selection - force refresh when checkbox changes
+        if select_all:
+            default_stores = store_names
+        else:
+            # Check if stores are currently selected
+            if "sr_stores" in st.session_state and st.session_state.sr_stores == store_names:
+                # If all stores were selected and checkbox is now unchecked, clear selection
+                default_stores = []
+                # Force clear the session state
+                if "sr_stores" in st.session_state:
+                    del st.session_state["sr_stores"]
+            else:
+                default_stores = st.session_state.get("sr_stores", [])
+        
+        selected_stores = st.multiselect(
+            "Select Store(s)", 
+            store_names, 
+            default=default_stores,
+            key="sr_stores"
+        )
 
         if st.button("✅ Continue", key="sr_continue"):
             if not selected_stores:
                 st.warning("Please select at least one store.")
             else:
+                # ... rest of your SR page code ...
                 try:
                     conn = mysql.connector.connect(**DB_CONFIG)
                     cursor = conn.cursor(dictionary=True)
@@ -1599,7 +1609,9 @@ elif st.session_state.page == "upload":
 
             if df_sales_2 is not None and not df_sales_2.empty:
                 display_sales_return_pdfs(df_sales_2)
-    
+
+
+    # Fix for TO page
     elif selected_page == "TO page":
         st.subheader("🔍 Filter Transfer Out Data")
 
@@ -1618,21 +1630,29 @@ elif st.session_state.page == "upload":
         cursor.close()
         conn.close()
 
-        # Initialize session state for TO stores if not exists
-        if "to_select_all_checked" not in st.session_state:
-            st.session_state.to_select_all_checked = False
-
         # Add "Select All Stores" checkbox
-        select_all = st.checkbox("Select All Stores", key="to_select_all", value=st.session_state.to_select_all_checked)
+        select_all = st.checkbox("Select All Stores", key="to_select_all")
 
-        # Update session state when checkbox changes
-        if select_all != st.session_state.to_select_all_checked:
-            st.session_state.to_select_all_checked = select_all
-            st.rerun()
+        # Determine default selection - force refresh when checkbox changes
+        if select_all:
+            default_stores = store_names
+        else:
+            # Check if stores are currently selected
+            if "to_stores" in st.session_state and st.session_state.to_stores == store_names:
+                # If all stores were selected and checkbox is now unchecked, clear selection
+                default_stores = []
+                # Force clear the session state
+                if "to_stores" in st.session_state:
+                    del st.session_state["to_stores"]
+            else:
+                default_stores = st.session_state.get("to_stores", [])
 
-        # Use store_names as default if "Select All" is checked
-        default_stores = store_names if st.session_state.to_select_all_checked else []
-        selected_stores = st.multiselect("Select Store(s)", store_names, default=default_stores, key="to_stores")
+        selected_stores = st.multiselect(
+            "Select Store(s)", 
+            store_names, 
+            default=default_stores,
+            key="to_stores"
+        )
 
         if st.button("✅ Continue", key="to_continue"):
             if not selected_stores:
