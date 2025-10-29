@@ -1519,14 +1519,21 @@ elif st.session_state.page == "upload":
         cursor.close()
         conn.close()
 
+        # Initialize session state for SR stores if not exists
+        if "sr_select_all_checked" not in st.session_state:
+            st.session_state.sr_select_all_checked = False
+
         # Add "Select All" checkbox
-        select_all = st.checkbox("Select All Stores", key="sr_select_all")
+        select_all = st.checkbox("Select All Stores", key="sr_select_all", value=st.session_state.sr_select_all_checked)
+
+        # Update session state when checkbox changes
+        if select_all != st.session_state.sr_select_all_checked:
+            st.session_state.sr_select_all_checked = select_all
+            st.rerun()
 
         # Use store_names as default if "Select All" is checked
-        if select_all:
-            selected_stores = st.multiselect("Select Store(s)", store_names, default=store_names, key="sr_stores")
-        else:
-            selected_stores = st.multiselect("Select Store(s)", store_names, key="sr_stores")
+        default_stores = store_names if st.session_state.sr_select_all_checked else []
+        selected_stores = st.multiselect("Select Store(s)", store_names, default=default_stores, key="sr_stores")
 
         if st.button("✅ Continue", key="sr_continue"):
             if not selected_stores:
@@ -1611,15 +1618,21 @@ elif st.session_state.page == "upload":
         cursor.close()
         conn.close()
 
+        # Initialize session state for TO stores if not exists
+        if "to_select_all_checked" not in st.session_state:
+            st.session_state.to_select_all_checked = False
+
         # Add "Select All Stores" checkbox
-        select_all = st.checkbox("Select All Stores", key="to_select_all")
+        select_all = st.checkbox("Select All Stores", key="to_select_all", value=st.session_state.to_select_all_checked)
+
+        # Update session state when checkbox changes
+        if select_all != st.session_state.to_select_all_checked:
+            st.session_state.to_select_all_checked = select_all
+            st.rerun()
 
         # Use store_names as default if "Select All" is checked
-        if select_all:
-            selected_stores = st.multiselect("Select Store(s)", store_names, default=store_names, key="to_stores")
-        else:
-            selected_stores = st.multiselect("Select Store(s)", store_names, key="to_stores")
-
+        default_stores = store_names if st.session_state.to_select_all_checked else []
+        selected_stores = st.multiselect("Select Store(s)", store_names, default=default_stores, key="to_stores")
 
         if st.button("✅ Continue", key="to_continue"):
             if not selected_stores:
