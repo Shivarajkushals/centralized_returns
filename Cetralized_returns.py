@@ -1547,9 +1547,21 @@ elif st.session_state.page == "upload":
                     store_placeholders = ','.join(['%s'] * len(selected_stores))
 
                     query = f"""
-                        SELECT * FROM tbl_wh_sales_returns
-                        WHERE date(created_date) BETWEEN %s AND %s
-                        AND outlet_name IN ({store_placeholders})
+                SELECT 
+                    s.*,
+                    t1.store_full_name,
+                    t2.name AS "shipping state"
+                FROM tbl_wh_sales_returns s
+                LEFT JOIN tbl_store_data t1 
+                    ON s.outlet_name = t1.store_full_name
+                LEFT JOIN value_view_store t3 
+                    ON t1.id = t3.store_data_id
+                LEFT JOIN tbl_view_value t2 
+                    ON t2.id = t3.view_value_id
+                WHERE 
+                    DATE(s.created_date) BETWEEN %s AND %s
+                    AND t2.view_id = 3
+                    AND t1.store_full_name IN ({store_placeholders})
                     """
 
                     params = [start_date, end_date] + selected_stores
@@ -1558,14 +1570,45 @@ elif st.session_state.page == "upload":
                     df_filtered = pd.DataFrame(filtered_data)
 
                     query1 = f"""
-                        select outlet_name, customer_name, sr_no as return_no, return_date, bill_no as Bill_refno,
-                        round(sum(bill_amount_1) + sum(packing_charges),2) as total_amount, sum(sold_qty) as qty, sum(item_gross) as item_gross, sum(discount_amount) as discount_amount,
-                        sales_tran_refno, returns_tran_refno, round(sum(bill_amount_1),2) as item_charges, round(sum(packing_charges),2) as packing_charges,
-                        customer_state, mobile_number, gst_billno, sum(gstamt) as gst_amt, sum(cgst_amt) as cgst_amt , sum(sgst_amt_ugst_amt) as sgst_amt_ugst_amt
-                        from tbl_wh_sales_returns
-                        WHERE date(created_date) BETWEEN %s AND %s
-                        AND outlet_name IN ({store_placeholders})
-                        group by outlet_name, bill_no;
+                        SELECT 
+                            s.bill_date,
+                            s.tender,
+                            s.outlet_name,
+                            s.customer_name,
+                            s.sr_no AS return_no,
+                            s.return_date,
+                            s.bill_no AS Bill_refno,
+                            ROUND(SUM(s.bill_amount_1) + SUM(s.packing_charges), 2) AS total_amount,
+                            SUM(s.sold_qty) AS qty,
+                            SUM(s.item_gross) AS item_gross,
+                            SUM(s.discount_amount) AS discount_amount,
+                            s.sales_tran_refno,
+                            s.returns_tran_refno,
+                            ROUND(SUM(s.bill_amount_1), 2) AS item_charges,
+                            ROUND(SUM(s.packing_charges), 2) AS packing_charges,
+                            s.customer_state,
+                            s.mobile_number,
+                            s.gst_billno,
+                            SUM(s.gstamt) AS gst_amt,
+                            SUM(s.cgst_amt) AS cgst_amt,
+                            SUM(s.sgst_amt_ugst_amt) AS sgst_amt_ugst_amt,
+                            s.hsn_sac_code,
+                            t2.name AS "shipping state"
+                        FROM tbl_wh_sales_returns s
+                        LEFT JOIN tbl_store_data t1 
+                            ON s.outlet_name = t1.store_full_name
+                        LEFT JOIN value_view_store t3 
+                            ON t1.id = t3.store_data_id
+                        LEFT JOIN tbl_view_value t2 
+                            ON t2.id = t3.view_value_id
+                        WHERE 
+                            DATE(s.created_date) BETWEEN %s AND %s
+                            AND t2.view_id = 3
+                            AND t1.store_full_name IN ({store_placeholders})
+                        GROUP BY 
+                            s.outlet_name, 
+                            s.bill_no,
+                            t2.name
                     """
 
                     params1 = [start_date, end_date] + selected_stores
@@ -1646,9 +1689,20 @@ elif st.session_state.page == "upload":
                     store_placeholders = ','.join(['%s'] * len(selected_stores))
 
                     query = f"""
-                        SELECT * FROM tbl_wh_transfer_out
-                        WHERE date(created_date) BETWEEN %s AND %s
-                        AND outlet_name_from IN ({store_placeholders})
+                        SELECT 
+                            t.*,
+                            t2.name AS "shipping state"
+                        FROM tbl_wh_transfer_out t
+                        LEFT JOIN tbl_store_data t1 
+                            ON t.outlet_name_from = t1.store_full_name
+                        LEFT JOIN value_view_store t3 
+                            ON t1.id = t3.store_data_id
+                        LEFT JOIN tbl_view_value t2 
+                            ON t2.id = t3.view_value_id
+                        WHERE 
+                            DATE(t.created_date) BETWEEN %s AND %s
+                            AND t2.view_id = 3
+                            AND t1.store_full_name IN ({store_placeholders})
                     """
 
                     params = [start_date, end_date] + selected_stores
@@ -1657,12 +1711,32 @@ elif st.session_state.page == "upload":
                     df_filtered = pd.DataFrame(filtered_data)
 
                     query1 = f"""
-                        select branch_recived as `branch_name_(received_to)`, outlet_name_from as `outlet_name_(sent_from)`, transaction_refno,
-                        transfer_out_date, sum(qty) as Tout_qty, sum(item_cost) as pur_price, sum(mrp) as MRP
-                        from tbl_wh_transfer_out
-                        WHERE date(created_date) BETWEEN %s AND %s
-                        AND outlet_name_from IN ({store_placeholders})
-                        group by branch_recived, outlet_name_from, transaction_refno, transfer_out_date, qty, item_cost, mrp
+                        SELECT 
+                            t.branch_recived AS `branch_name_(received_to)`,
+                            t.outlet_name_from AS `outlet_name_(sent_from)`,
+                            t.transaction_refno,
+                            t.transfer_out_date,
+                            ROUND(SUM(t.qty), 2) AS Tout_qty,
+                            ROUND(SUM(t.item_cost), 2) AS pur_price,
+                            ROUND(SUM(t.mrp), 2) AS MRP,
+                            t2.name AS "shipping state"
+                        FROM tbl_wh_transfer_out t
+                        LEFT JOIN tbl_store_data t1 
+                            ON t.outlet_name_from = t1.store_full_name
+                        LEFT JOIN value_view_store t3 
+                            ON t1.id = t3.store_data_id
+                        LEFT JOIN tbl_view_value t2 
+                            ON t2.id = t3.view_value_id
+                        WHERE 
+                            DATE(t.created_date) BETWEEN %s AND %s
+                            AND t2.view_id = 3
+                            AND t1.store_full_name IN ({store_placeholders})
+                        GROUP BY 
+                            t.branch_recived,
+                            t.outlet_name_from,
+                            t.transaction_refno,
+                            t.transfer_out_date,
+                            t2.name
                     """
 
                     params1 = [start_date, end_date] + selected_stores
