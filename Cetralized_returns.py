@@ -1551,6 +1551,7 @@ elif st.session_state.page == "upload":
                     query = f"""
                 SELECT 
                     s.*,
+                    t4.item_name,
                     t2.name AS "shipping state"
                 FROM tbl_wh_sales_returns s
                 LEFT JOIN tbl_store_data t1 
@@ -1559,6 +1560,8 @@ elif st.session_state.page == "upload":
                     ON t1.id = t3.store_data_id
                 LEFT JOIN tbl_view_value t2 
                     ON t2.id = t3.view_value_id
+                LEFT JOIN tbl_item_data t4
+                    ON s.combination_id = t4.combination_id
                 WHERE 
                     DATE(s.created_date) BETWEEN %s AND %s
                     AND t2.view_id = 3
