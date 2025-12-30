@@ -44,7 +44,7 @@ main_container = st.empty()
 # Function to fetch and load credentials from GitHub
 @st.cache_data
 def load_credentials():
-    url = "https://raw.githubusercontent.com/ShivarajMBB/Streamlit-repo/master/Security.txt"
+    url = st.secrets["credentials"]
     try:
         response = requests.get(url)
         if response.status_code == 200:
