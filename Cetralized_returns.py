@@ -44,7 +44,7 @@ main_container = st.empty()
 # Function to fetch and load credentials from GitHub
 @st.cache_data
 def load_credentials():
-    url = st.secrets["credentials"]
+    url = st.secrets["credentials"]["github_url"]
     try:
         response = requests.get(url)
         if response.status_code == 200:
