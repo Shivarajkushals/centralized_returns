@@ -1150,7 +1150,7 @@ elif st.session_state.page == "upload":
 
                 qty_query = f"""
                     SELECT 
-                        t1.bill_number AS `bill no`,
+                        t2.GST_bill_number AS `bill no`,
                         t1.combination_id,
                         sum(t1.sold_qty) AS db_qty
                     FROM tbl_sales t1
@@ -1175,11 +1175,11 @@ elif st.session_state.page == "upload":
                 )
 
                 # Fill missing DB qty as 0 (means record not found in DB)
-                qty_compare_df["db_qty"] = qty_compare_df["db_qty"].fillna(0)
+                qty_compare_df["db_qty"] = qty_compare_df["db_qty"].fillna(0).astype(int)
 
                 # Step 5: Identify mismatched qty
                 qty_mismatch_df = qty_compare_df[
-                    qty_compare_df["uploaded_qty"] < qty_compare_df["db_qty"]
+                    qty_compare_df["uploaded_qty"] > qty_compare_df["db_qty"]
                 ]
 
                 # Step 6: If any mismatch → STOP RTV processing
