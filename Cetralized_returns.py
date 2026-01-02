@@ -321,7 +321,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
             ON t1.id = t4.sr_id
         WHERE date(t1.created_date) BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
-        AND t1.hidden = NULL
+        AND (t1.hidden IS NULL OR t1.hidden = 0 OR t1.hidden = '')
         GROUP BY 
             t1.design_no, 
             t1.outlet_name
@@ -347,7 +347,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
             ON t1.combination_id = t2.combination_id
         WHERE date(t1.created_date) BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
-        AND t1.hidden = NULL
+        AND (t1.hidden IS NULL OR t1.hidden = 0 OR t1.hidden = '')
         GROUP BY 
             t1.design_no
         """
