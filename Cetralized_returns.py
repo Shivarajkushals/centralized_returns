@@ -318,7 +318,7 @@ def fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores):
         LEFT JOIN tbl_wh_store_config t3
             ON t1.outlet_name = t3.store_name
         LEFT JOIN tbl_wh_transfer_out t4
-            ON t1.id = t4.sr_id
+            ON t1.id = t4.id
         WHERE date(t1.created_date) BETWEEN %s AND %s
         AND t1.outlet_name IN ({store_placeholders})
         AND (t1.hidden IS NULL OR t1.hidden = 0 OR t1.hidden = '')
@@ -670,7 +670,10 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         pdf.set_font("Helvetica", "", 9)
         pdf.cell(0, 6, "Note: This is a system-generated document. No signature is required.", align="L")
         
-        pdf_filename = os.path.join(output_folder, f"{outlet}.pdf")
+        # Include TO number in filename to make it unique
+        safe_outlet = outlet.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        safe_to_no = no.replace("/", "_").replace("\\", "_").replace(" ", "_")
+        pdf_filename = os.path.join(output_folder, f"{safe_outlet}_{safe_to_no}.pdf")
         pdf.output(pdf_filename)
         pdf_files.append(pdf_filename)
 
@@ -2004,6 +2007,26 @@ elif st.session_state.page == "upload":
         default_stores = store_names if st.session_state.sr_select_all_checked else []
         selected_stores = st.multiselect("Select Store(s)", store_names, default=default_stores, key="sr_stores")
 
+        # ========================================
+        # ADD THIS DEBUG SECTION
+        # ========================================
+        # st.info("📊 **Current Filters:**")
+        # col_debug1, col_debug2, col_debug3 = st.columns(3)
+        # with col_debug1:
+        #     st.write(f"**Start Date:** {start_date}")
+        # with col_debug2:
+        #     st.write(f"**End Date:** {end_date}")
+        # with col_debug3:
+        #     st.write(f"**Stores Selected:** {len(selected_stores)}")
+
+        # if not selected_stores:
+        #     st.warning("⚠️ Please select at least one store to view data")
+        # else:
+        #     st.success(f"✅ {len(selected_stores)} store(s) selected: {', '.join(selected_stores[:3])}{'...' if len(selected_stores) > 3 else ''}")
+        # ========================================
+        # END DEBUG SECTION
+        # ========================================
+
         if st.button("✅ Continue", key="sr_continue"):
             if not selected_stores:
                 st.warning("Please select at least one store.")
@@ -2239,25 +2262,37 @@ elif st.session_state.page == "upload":
             
             df_sales_1, _ = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
             to_display = pd.DataFrame(df_sales_1)
-            
+
             # Display sales data
             st.write("TO PDF output:")
             if isinstance(df_sales_1, pd.DataFrame) and not df_sales_1.empty:
                 st.dataframe(df_sales_1)
-        
+
                 # Generate PDFs
                 pdf_files = generate_pdfs_from_df(df_sales_1)
-        
+
                 # Streamlit UI for downloading PDFs
                 st.header("Download Sales Reports")
-                for pdf_file in pdf_files:
-                    outlet_name = os.path.basename(pdf_file).replace(".pdf", "")  # Extract outlet name
+                for idx, pdf_file in enumerate(pdf_files):
+                    # Extract filename without extension
+                    base_filename = os.path.basename(pdf_file).replace(".pdf", "")
+                    
+                    # Split outlet name and TO number (format: OutletName_TO001)
+                    if "_TO" in base_filename:
+                        parts = base_filename.rsplit("_TO", 1)  # Split by _TO from the right
+                        outlet_name = parts[0].replace("_", " ")  # Convert underscores back to spaces
+                        to_number = "TO" + parts[1]  # Add TO prefix back
+                    else:
+                        outlet_name = base_filename.replace("_", " ")
+                        to_number = "Unknown"
+                    
                     with open(pdf_file, "rb") as f:
                         st.download_button(
-                            label=f"📥 Download {outlet_name}.pdf",
+                            label=f"📥 {outlet_name} - {to_number}",
                             data=f,
-                            file_name=f"{outlet_name}.pdf",
-                            mime="application/pdf"
+                            file_name=f"{base_filename}.pdf",  # Use full filename with TO number
+                            mime="application/pdf",
+                            key=f"download_to_pdf_{idx}"  # Simple unique key
                         )
             else:
                 st.error("❌ No data available to generate PDFs.")
