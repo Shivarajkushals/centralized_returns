@@ -2033,7 +2033,7 @@ elif st.session_state.page == "upload":
                     DATE(s.created_date) BETWEEN %s AND %s
                     AND t2.view_id = 3
                     AND t1.store_full_name IN ({store_placeholders})
-                    AND s.hidden = NULL
+                    AND (s.hidden IS NULL OR s.hidden = 0 OR s.hidden = '')
                     """
 
                     params = [start_date, end_date] + selected_stores
@@ -2077,7 +2077,7 @@ elif st.session_state.page == "upload":
                             DATE(s.created_date) BETWEEN %s AND %s
                             AND t2.view_id = 3
                             AND t1.store_full_name IN ({store_placeholders})
-                            AND s.hidden = NULL
+                            AND (s.hidden IS NULL OR s.hidden = 0 OR s.hidden = '')
                         GROUP BY 
                             s.outlet_name, 
                             s.bill_no,
@@ -2176,7 +2176,7 @@ elif st.session_state.page == "upload":
                             DATE(t.created_date) BETWEEN %s AND %s
                             AND t2.view_id = 3
                             AND t1.store_full_name IN ({store_placeholders})
-                            AND t.hidden = NULL
+                            AND (t.hidden IS NULL OR t.hidden = 0 OR t.hidden = '')
                     """
 
                     params = [start_date, end_date] + selected_stores
@@ -2205,7 +2205,7 @@ elif st.session_state.page == "upload":
                             DATE(t.created_date) BETWEEN %s AND %s
                             AND t2.view_id = 3
                             AND t1.store_full_name IN ({store_placeholders})
-                            AND t.hidden = NULL
+                            AND (t.hidden IS NULL OR t.hidden = 0 OR t.hidden = '')
                         GROUP BY 
                             t.branch_recived,
                             t.outlet_name_from,
