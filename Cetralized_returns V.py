@@ -174,12 +174,10 @@ def filter_inactive_stores(uploaded_df):
 
 def check_duplicates(uploaded_df, db_df):
     if db_df.empty:
-        return uploaded_df, pd.DataFrame()  # No duplicates if database is empty
+        return uploaded_df, pd.DataFrame()
     
-    # Create a working copy to preserve original data
     working_df = uploaded_df.copy()
-
-    # Define column mappings (ensuring consistency)
+    
     column_mapping = {
         "return_date": "date",
         "outlet_name": "stores",
@@ -187,48 +185,48 @@ def check_duplicates(uploaded_df, db_df):
         "combination_id": "combination_id",
         "barcode": "barcode",
     }
-
-    # Ensure mapped columns exist in both DataFrames
+    
+    # Ensure mapped columns exist
     for db_col, up_col in column_mapping.items():
         if db_col not in db_df.columns or up_col not in working_df.columns:
             st.error(f"❌ Missing column: {db_col} in database or {up_col} in uploaded file!")
             return uploaded_df, pd.DataFrame()
-
-    # Standardize column names for comparison
+    
+    # Standardize column names
     db_comparison = db_df.rename(columns=column_mapping).copy()
     upload_comparison = working_df.copy()
-
+    
     # Clean and standardize columns
     for col in column_mapping.values():
-        # Special handling for date: convert to datetime first, then standardize
         if col == "date":
-            # Convert to datetime with explicit format, then format to string
-            upload_comparison[col] = pd.to_datetime(upload_comparison[col], format='%Y-%m-%d', errors='coerce').dt.strftime('%Y-%m-%d')
-            db_comparison[col] = pd.to_datetime(db_comparison[col], format='%Y-%m-%d', errors='coerce').dt.strftime('%Y-%m-%d')
+            # ✅ FIX: Remove format parameter to handle any date format
+            upload_comparison[col] = pd.to_datetime(upload_comparison[col], errors='coerce').dt.strftime('%Y-%m-%d')
+            db_comparison[col] = pd.to_datetime(db_comparison[col], errors='coerce').dt.strftime('%Y-%m-%d')
         else:
-            upload_comparison[col] = '"' + upload_comparison[col].astype(str).str.strip().str.lower() + '"'
-            db_comparison[col] = '"' + db_comparison[col].astype(str).str.strip().str.lower() + '"'
-
+            # ✅ FIX: Remove quotes, just normalize
+            upload_comparison[col] = upload_comparison[col].astype(str).str.strip().str.lower()
+            db_comparison[col] = db_comparison[col].astype(str).str.strip().str.lower()
+    
     # Merge to find duplicates
     merged_df = upload_comparison.merge(
         db_comparison,
         how="inner",
         on=["date", "stores", "bill no", "combination_id", "barcode"]
     )
-
-    # Extract duplicate records from original uploaded_df
+    
+    # Extract duplicate records
     duplicate_indices = upload_comparison[
         upload_comparison.set_index(["date", "stores", "bill no", "combination_id", "barcode"]).index.isin(
             merged_df.set_index(["date", "stores", "bill no", "combination_id", "barcode"]).index
         )
     ].index
-
+    
     duplicate_records = uploaded_df.loc[duplicate_indices].copy()
     non_duplicate_df = uploaded_df.drop(duplicate_indices).copy()
-
+    
     if not duplicate_records.empty:
         st.warning(f"⚠️ Found {len(duplicate_records)} duplicate records. These will not be processed.")
-
+    
     return non_duplicate_df, duplicate_records
 
 # Function to assign SR numbers and return max SR per store
@@ -1395,17 +1393,35 @@ elif st.session_state.page == "upload":
                 batch_no = data["next_batch_no"] # Max batch id for one time updation
             
                 uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
+
+                if not duplicate_records.empty:
+                    st.error("❌ ❌ ❌ DUPLICATE RECORDS FOUND ❌ ❌ ❌")
+                    st.error(f"⚠️ Found {len(duplicate_records)} duplicate record(s) in the database.")
+                    st.error("**These records already exist and cannot be uploaded again:**")
+                    st.dataframe(duplicate_records, use_container_width=True)
+                    
+                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "📥 Download Duplicate Records", 
+                        csv_duplicates, 
+                        "duplicate_records.csv", 
+                        "text/csv",
+                        key="download_duplicates_rtv"
+                    )
+                    
+                    st.error("🛑 Upload process stopped. Please remove duplicates and try again.")
+                    st.stop()  # ⚠️ CRITICAL: Stop execution immediately
                 
                 # Use the modified functions with store_case_mapping
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
                 uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
 
-                if not duplicate_records.empty:
-                    st.write("Duplicate records")
-                    st.dataframe(duplicate_records)
+                # if not duplicate_records.empty:
+                #     st.write("Duplicate records")
+                #     st.dataframe(duplicate_records)
                     
-                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
-                    st.download_button("Download Duplicate Records", csv_duplicates, "duplicate_records.csv", "text/csv")
+                #     csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
+                #     st.download_button("Download Duplicate Records", csv_duplicates, "duplicate_records.csv", "text/csv")
             
             
                 if not uploaded_df.empty:
@@ -1804,6 +1820,24 @@ elif st.session_state.page == "upload":
                 batch_no = data["next_batch_no"] # Max batch id for one time updation
             
                 uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
+
+                if not duplicate_records.empty:
+                    st.error("❌ ❌ ❌ DUPLICATE RECORDS FOUND ❌ ❌ ❌")
+                    st.error(f"⚠️ Found {len(duplicate_records)} duplicate record(s) in the database.")
+                    st.error("**These records already exist and cannot be uploaded again:**")
+                    st.dataframe(duplicate_records, use_container_width=True)
+                    
+                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "📥 Download Duplicate Records", 
+                        csv_duplicates, 
+                        "duplicate_records.csv", 
+                        "text/csv",
+                        key="download_duplicates_rto"
+                    )
+                    
+                    st.error("🛑 Upload process stopped. Please remove duplicates and try again.")
+                    st.stop()  # ⚠️ CRITICAL: Stop execution immediately
                 
                 # Use the modified functions with store_case_mapping
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
