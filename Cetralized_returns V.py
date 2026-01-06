@@ -1198,6 +1198,41 @@ elif st.session_state.page == "upload":
                 uploaded_df["bill no"] = uploaded_df["bill no"].astype(str).str.strip()
                 uploaded_df["combination_id"] = uploaded_df["combination_id"].astype(str).str.strip()
 
+                data = fetch_all_data()  # Fetch all required data in one go
+                
+                db_df = data["sales_returns_df"]  # tbl_wh_sales_returns data
+                db_transfer_out = data["transfer_out_df"]  # tbl_wh_transfer_out data
+                
+                sr_dict = data["sr_numbers"]  # Max SR numbers per store
+                to_dict = data["to_numbers"]  # Max TO numbers per store
+                store_case_mapping = data["store_case_mapping"]  # Store name case mapping
+
+                batch_no = data["next_batch_no"] # Max batch id for one time updation
+
+                # ============================================================
+                # STEP 1: DUPLICATE CHECK (NEW FIRST POSITION) ⚡
+                # ============================================================
+            
+                uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
+
+                if not duplicate_records.empty:
+                    st.error("❌ ❌ ❌ DUPLICATE RECORDS FOUND ❌ ❌ ❌")
+                    st.error(f"⚠️ Found {len(duplicate_records)} duplicate record(s) in the database.")
+                    st.error("**These records already exist and cannot be uploaded again:**")
+                    st.dataframe(duplicate_records, use_container_width=True)
+                    
+                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
+                    st.download_button(
+                        "📥 Download Duplicate Records", 
+                        csv_duplicates, 
+                        "duplicate_records.csv", 
+                        "text/csv",
+                        key="download_duplicates_rtv"
+                    )
+                    
+                    st.error("🛑 Upload process stopped. Please remove duplicates and try again.")
+                    st.stop()  # ⚠️ CRITICAL: Stop execution immediately
+
                 # -----------------------------------------
                 # COMBINED VALIDATION: Store Mapping + QTY Check
                 # -----------------------------------------
@@ -1380,37 +1415,6 @@ elif st.session_state.page == "upload":
                 if not inactive_df.empty:
                     st.write("Inactive store data:")
                     st.dataframe(inactive_df)
-            
-                data = fetch_all_data()  # Fetch all required data in one go
-                
-                db_df = data["sales_returns_df"]  # tbl_wh_sales_returns data
-                db_transfer_out = data["transfer_out_df"]  # tbl_wh_transfer_out data
-                
-                sr_dict = data["sr_numbers"]  # Max SR numbers per store
-                to_dict = data["to_numbers"]  # Max TO numbers per store
-                store_case_mapping = data["store_case_mapping"]  # Store name case mapping
-
-                batch_no = data["next_batch_no"] # Max batch id for one time updation
-            
-                uploaded_df, duplicate_records = check_duplicates(uploaded_df, db_df)
-
-                if not duplicate_records.empty:
-                    st.error("❌ ❌ ❌ DUPLICATE RECORDS FOUND ❌ ❌ ❌")
-                    st.error(f"⚠️ Found {len(duplicate_records)} duplicate record(s) in the database.")
-                    st.error("**These records already exist and cannot be uploaded again:**")
-                    st.dataframe(duplicate_records, use_container_width=True)
-                    
-                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
-                    st.download_button(
-                        "📥 Download Duplicate Records", 
-                        csv_duplicates, 
-                        "duplicate_records.csv", 
-                        "text/csv",
-                        key="download_duplicates_rtv"
-                    )
-                    
-                    st.error("🛑 Upload process stopped. Please remove duplicates and try again.")
-                    st.stop()  # ⚠️ CRITICAL: Stop execution immediately
                 
                 # Use the modified functions with store_case_mapping
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
@@ -1843,12 +1847,12 @@ elif st.session_state.page == "upload":
                 uploaded_df = assign_sr_numbers(uploaded_df, sr_dict)
                 uploaded_df, max_to_dict = assign_to_numbers(uploaded_df, to_dict, store_case_mapping)
             
-                if not duplicate_records.empty:
-                    st.write("Duplicate records")
-                    st.dataframe(duplicate_records)
+                # if not duplicate_records.empty:
+                #     st.write("Duplicate records")
+                #     st.dataframe(duplicate_records)
                     
-                    csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
-                    st.download_button("Download Duplicate Records", csv_duplicates, "duplicate_records.csv", "text/csv")
+                #     csv_duplicates = duplicate_records.to_csv(index=False).encode("utf-8")
+                #     st.download_button("Download Duplicate Records", csv_duplicates, "duplicate_records.csv", "text/csv")
             
             
                 if not uploaded_df.empty:
