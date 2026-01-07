@@ -7,6 +7,8 @@ from datetime import datetime
 import os
 from fpdf import FPDF
 import base64
+from io import BytesIO
+
 
 # Set Page Title
 st.set_page_config(page_title="Centralized_retuns", layout="wide")
@@ -441,8 +443,13 @@ def expand_design_numbers(df):
     
     return pd.DataFrame(new_rows)
 
-def generate_pdfs_from_df(df, output_folder="pdf_reports"):
-    os.makedirs(output_folder, exist_ok=True)
+def generate_pdfs_from_df(df):
+    """
+    Generate PDFs in memory (BytesIO) instead of saving to disk.
+    Returns a list of tuples: (filename, pdf_bytes)
+    """
+    if df.empty:
+        return []
     
     # Group by outlet_name and ensure each has its corresponding address
     outlet_groups = df.groupby(['outlet_name', 'address', "transfer_out_date", "transfer_out_no"])
@@ -468,7 +475,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
             pdf.set_font("Helvetica", "B", 9)
             pdf.cell(0, 8, "ORIGINAL", ln=True)
 
-            pdf.rect(1, 13, 208, 16)  # Rectangle for company info
+            pdf.rect(1, 13, 208, 16)
             pdf.ln(5)
             pdf.set_font("Helvetica", "B", 9)
             pdf.set_xy(6, 22.8)  
@@ -484,7 +491,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
             pdf.set_xy(85, 22.8)  
             pdf.cell(0, 6, "GSTIN: 29AAHCK5046J1Z6", ln=True)  
 
-            pdf.rect(1, 29, 208, 26.5)  # Rectangle for destination info
+            pdf.rect(1, 29, 208, 26.5)
 
             pdf.ln(18)
             pdf.set_font("Helvetica", "B", 9)
@@ -516,7 +523,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
             pdf.set_xy(120, 40)  
             pdf.cell(0, 6, f"Date :                              {date}", ln=True) 
             
-            pdf.rect(1, 55.5, 208, 237)  # Table border
+            pdf.rect(1, 55.5, 208, 237)
             add_table_header()
 
         def add_table_header():
@@ -524,7 +531,6 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
             pdf.set_xy(5, 57)
             pdf.set_font("Helvetica", "B", 9)
 
-            # Define header positions
             header_positions = [3, 17, 72, 85, 105, 130, 150, 168, 180]
             headers = ["Sr No", "Item Description", "HSN", "Design No", "Color", "Polish", "Size", "Qty", "MRP Amount"]
 
@@ -535,8 +541,7 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
 
         add_page_header()
         
-        # **Header separator**
-        pdf.rect(1, 55.5, 208, 6.8)  # (x, y, width, height)
+        pdf.rect(1, 55.5, 208, 6.8)
 
         pdf.set_font("Helvetica", "", 9.2)
         row_spacing = 6
@@ -548,132 +553,138 @@ def generate_pdfs_from_df(df, output_folder="pdf_reports"):
         net_total = 0.0
 
         for i, row in outlet_df.iterrows():
-            if pdf.get_y() > 250:  # Ensure enough space for totals
+            if pdf.get_y() > 250:
                 pdf.add_page()
                 add_page_header()
 
             pdf.set_x(3)
-            pdf.cell(14, row_spacing, str(i + 1), align="L")  # Sr No
+            pdf.cell(14, row_spacing, str(i + 1), align="L")
 
             pdf.set_x(17)
-            pdf.cell(55, row_spacing, str(row['item_name']), align="L")  # Item Description
+            pdf.cell(55, row_spacing, str(row['item_name']), align="L")
 
             pdf.set_x(72)
-            pdf.cell(13, row_spacing, "7117", align="L")  # HSN (Constant Value)
+            pdf.cell(13, row_spacing, "7117", align="L")
 
             pdf.set_x(85)
-            pdf.cell(20, row_spacing, str(row['design_no']), align="L")  # Design No
+            pdf.cell(20, row_spacing, str(row['design_no']), align="L")
 
             pdf.set_x(105)
-            pdf.cell(25, row_spacing, str(row['color']), align="L")  # Color
+            pdf.cell(25, row_spacing, str(row['color']), align="L")
 
             pdf.set_x(130)
-            pdf.cell(20, row_spacing, str(row['polish']), align="L")  # Polish
+            pdf.cell(20, row_spacing, str(row['polish']), align="L")
 
             pdf.set_x(150)
-            pdf.cell(18, row_spacing, str(row['size']), align="L")  # Size
+            pdf.cell(18, row_spacing, str(row['size']), align="L")
 
             pdf.set_x(166)
-            pdf.cell(12, row_spacing, str(row['Qty']), align="C")  # Qty
+            pdf.cell(12, row_spacing, str(row['Qty']), align="C")
             total_qty += int(row['Qty'])
 
             pdf.set_x(172)
-            pdf.cell(28, row_spacing, str(row['MRP_Amount']), align="R")  # MRP Amount
+            pdf.cell(28, row_spacing, str(row['MRP_Amount']), align="R")
             total_mrp += float(row['MRP_Amount'])
-
 
             pdf.ln(row_spacing)
             
             total_dis += float(row['bill_discount'])
             net_total = total_mrp + total_dis
 
-        # Ensure totals are positioned exactly 40 units from the bottom
-        y_position_for_totals = 287 - 45  # Page height is 297, keep totals at 40 from bottom
+        y_position_for_totals = 287 - 45
         
         if pdf.get_y() > y_position_for_totals:
             pdf.add_page()
             add_page_header()
         
-        pdf.rect(1, 240, 208, 52.4)  # Box for totals and notes
+        pdf.rect(1, 240, 208, 52.4)
         
-        # Move to the correct position for totals
         pdf.set_xy(3, y_position_for_totals)
         pdf.set_font("Helvetica", "B", 10)
         
-        # Draw Total Qty & Total Amount on the same line
         pdf.cell(130, row_spacing, "Total Qty", align="R")
-        pdf.cell(12, row_spacing, str(total_qty), align="C")  # Total Quantity
+        pdf.cell(12, row_spacing, str(total_qty), align="C")
         
-        # Set X position for Total Amount
         pdf.set_x(150)  
         pdf.cell(30, row_spacing, "Total Amount", align="R")
-        pdf.cell(20, row_spacing, str(total_mrp), align="R")  # Total MRP Amount
+        pdf.cell(20, row_spacing, str(total_mrp), align="R")
         
-        pdf.ln(8)  # Move down for HSN
+        pdf.ln(8)
         
-        # Set position for HSN
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(10, 242  )  # Adjust X position as needed
+        pdf.set_xy(10, 242)
         pdf.cell(0, row_spacing, "HSN", align="L")
         
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(10, 250  )  # Adjust X position as needed
+        pdf.set_xy(10, 250)
         pdf.cell(0, row_spacing, "7117", align="L")
         
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(35, 242  )  # Adjust X position as needed
+        pdf.set_xy(35, 242)
         pdf.cell(0, row_spacing, "GST", align="L")
 
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(35, 250  )  # Adjust X position as needed
+        pdf.set_xy(35, 250)
         pdf.cell(0, row_spacing, "0", align="L")
 
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(60, 242  )  # Adjust X position as needed
+        pdf.set_xy(60, 242)
         pdf.cell(0, row_spacing, "Qty", align="L")
 
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(60, 250  )  # Adjust X position as needed
+        pdf.set_xy(60, 250)
         pdf.cell(0, row_spacing, "A", align="L")
         
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(80, 242  )  # Adjust X position as needed
+        pdf.set_xy(80, 242)
         pdf.cell(0, row_spacing, "Amount", align="L")
 
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(80, 250  )  # Adjust X position as needed
+        pdf.set_xy(80, 250)
         pdf.cell(0, row_spacing, "B", align="L")
         
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(156, 250)  # Adjust X position as needed
+        pdf.set_xy(156, 250)
         pdf.cell(0, row_spacing, "Discount", align="L")
 
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(187.2, 250  )  # Adjust X position as needed
+        pdf.set_xy(187.2, 250)
         pdf.cell(0, row_spacing, str(total_dis), align="L")
         
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(156, 256)  # Adjust X position as needed
+        pdf.set_xy(156, 256)
         pdf.cell(0, row_spacing, "Net Total", align="L")
 
         pdf.set_font("Helvetica", "B", 9)
-        pdf.set_xy(187.2, 256  )  # Adjust X position as needed
+        pdf.set_xy(187.2, 256)
         pdf.cell(0, row_spacing, str(net_total), align="L")
         
-        pdf.ln(10)  # Move down after HSN
+        pdf.ln(10)
 
-
-        # Ensure the note is positioned at the bottom
-        pdf.set_xy(60, 287 - 11.4)  # 10 units from the bottom of the page
+        pdf.set_xy(60, 287 - 11.4)
         pdf.set_font("Helvetica", "", 9)
         pdf.cell(0, 6, "Note: This is a system-generated document. No signature is required.", align="L")
         
-        # Include TO number in filename to make it unique
+        # ✅ Generate PDF in memory instead of saving to disk
         safe_outlet = outlet.replace("/", "_").replace("\\", "_").replace(" ", "_")
         safe_to_no = no.replace("/", "_").replace("\\", "_").replace(" ", "_")
-        pdf_filename = os.path.join(output_folder, f"{safe_outlet}_{safe_to_no}.pdf")
-        pdf.output(pdf_filename)
-        pdf_files.append(pdf_filename)
+        filename = f"{safe_outlet}_{safe_to_no}.pdf"
+        
+        # Create BytesIO object to hold PDF in memory
+        pdf_buffer = BytesIO()
+        pdf_output_str = pdf.output(dest='S')  # Output as string
+        
+        # Convert string to bytes if needed (FPDF version dependent)
+        if isinstance(pdf_output_str, str):
+            pdf_bytes = pdf_output_str.encode('latin-1')
+        else:
+            pdf_bytes = pdf_output_str
+        
+        pdf_buffer.write(pdf_bytes)
+        pdf_buffer.seek(0)  # Reset pointer to beginning
+        
+        # Store filename and bytes
+        pdf_files.append((filename, pdf_buffer.getvalue()))
 
     return pdf_files
 
@@ -2286,30 +2297,29 @@ elif st.session_state.page == "upload":
 
                 # Generate PDFs
                 pdf_files = generate_pdfs_from_df(df_sales_1)
-
+                
                 # Streamlit UI for downloading PDFs
                 st.header("Download Sales Reports")
-                for idx, pdf_file in enumerate(pdf_files):
-                    # Extract filename without extension
-                    base_filename = os.path.basename(pdf_file).replace(".pdf", "")
+                for idx, (filename, pdf_bytes) in enumerate(pdf_files):
+                    # Parse filename to get outlet and TO number
+                    base_filename = filename.replace(".pdf", "")
                     
-                    # Split outlet name and TO number (format: OutletName_TO001)
                     if "_TO" in base_filename:
-                        parts = base_filename.rsplit("_TO", 1)  # Split by _TO from the right
-                        outlet_name = parts[0].replace("_", " ")  # Convert underscores back to spaces
-                        to_number = "TO" + parts[1]  # Add TO prefix back
+                        parts = base_filename.rsplit("_TO", 1)
+                        outlet_name = parts[0].replace("_", " ")
+                        to_number = "TO" + parts[1]
                     else:
                         outlet_name = base_filename.replace("_", " ")
                         to_number = "Unknown"
                     
-                    with open(pdf_file, "rb") as f:
-                        st.download_button(
-                            label=f"📥 {outlet_name} - {to_number}",
-                            data=f,
-                            file_name=f"{base_filename}.pdf",  # Use full filename with TO number
-                            mime="application/pdf",
-                            key=f"download_to_pdf_{idx}"  # Simple unique key
-                        )
+                    # Download button with in-memory PDF bytes
+                    st.download_button(
+                        label=f"📥 {outlet_name} - {to_number}",
+                        data=pdf_bytes,  # ← Direct bytes, no file reading needed
+                        file_name=filename,
+                        mime="application/pdf",
+                        key=f"download_to_pdf_{idx}"
+                    )
             else:
                 st.error("❌ No data available to generate PDFs.")
 
