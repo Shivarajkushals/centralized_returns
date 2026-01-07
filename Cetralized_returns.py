@@ -2079,20 +2079,14 @@ elif st.session_state.page == "upload":
                     query = f"""
                 SELECT 
                     s.*,
-                    t4.item_name,
-                    t2.name AS "shipping state"
+                    t4.item_name
                 FROM tbl_wh_sales_returns s
                 LEFT JOIN tbl_store_data t1 
                     ON s.outlet_name = t1.store_full_name
-                LEFT JOIN value_view_store t3 
-                    ON t1.id = t3.store_data_id
-                LEFT JOIN tbl_view_value t2 
-                    ON t2.id = t3.view_value_id
                 LEFT JOIN tbl_item_data t4
                     ON s.combination_id = t4.combination_id
                 WHERE 
                     DATE(s.created_date) BETWEEN %s AND %s
-                    AND t2.view_id = 3
                     AND t1.store_full_name IN ({store_placeholders})
                     AND (s.hidden IS NULL OR s.hidden = 0 OR s.hidden = '')
                     """
@@ -2125,24 +2119,18 @@ elif st.session_state.page == "upload":
                             SUM(s.gstamt) AS gst_amt,
                             SUM(s.cgst_amt) AS cgst_amt,
                             SUM(s.sgst_amt_ugst_amt) AS sgst_amt_ugst_amt,
-                            s.hsn_sac_code,
-                            t2.name AS "shipping state"
+                            s.hsn_sac_code
                         FROM tbl_wh_sales_returns s
                         LEFT JOIN tbl_store_data t1 
                             ON s.outlet_name = t1.store_full_name
-                        LEFT JOIN value_view_store t3 
-                            ON t1.id = t3.store_data_id
-                        LEFT JOIN tbl_view_value t2 
-                            ON t2.id = t3.view_value_id
                         WHERE 
                             DATE(s.created_date) BETWEEN %s AND %s
-                            AND t2.view_id = 3
                             AND t1.store_full_name IN ({store_placeholders})
                             AND (s.hidden IS NULL OR s.hidden = 0 OR s.hidden = '')
                         GROUP BY 
                             s.outlet_name, 
                             s.bill_no,
-                            t2.name
+                            s.bill_date
                     """
 
                     params1 = [start_date, end_date] + selected_stores
@@ -2224,18 +2212,12 @@ elif st.session_state.page == "upload":
 
                     query = f"""
                         SELECT 
-                            t.*,
-                            t2.name AS "shipping state"
+                            t.*
                         FROM tbl_wh_transfer_out t
                         LEFT JOIN tbl_store_data t1 
                             ON t.outlet_name_from = t1.store_full_name
-                        LEFT JOIN value_view_store t3 
-                            ON t1.id = t3.store_data_id
-                        LEFT JOIN tbl_view_value t2 
-                            ON t2.id = t3.view_value_id
                         WHERE 
                             DATE(t.created_date) BETWEEN %s AND %s
-                            AND t2.view_id = 3
                             AND t1.store_full_name IN ({store_placeholders})
                             AND (t.hidden IS NULL OR t.hidden = 0 OR t.hidden = '')
                     """
@@ -2253,26 +2235,19 @@ elif st.session_state.page == "upload":
                             t.transfer_out_date,
                             ROUND(SUM(t.qty), 2) AS Tout_qty,
                             ROUND(SUM(t.item_cost), 2) AS pur_price,
-                            ROUND(SUM(t.mrp), 2) AS MRP,
-                            t2.name AS "shipping state"
+                            ROUND(SUM(t.mrp), 2) AS MRP
                         FROM tbl_wh_transfer_out t
                         LEFT JOIN tbl_store_data t1 
                             ON t.outlet_name_from = t1.store_full_name
-                        LEFT JOIN value_view_store t3 
-                            ON t1.id = t3.store_data_id
-                        LEFT JOIN tbl_view_value t2 
-                            ON t2.id = t3.view_value_id
                         WHERE 
                             DATE(t.created_date) BETWEEN %s AND %s
-                            AND t2.view_id = 3
                             AND t1.store_full_name IN ({store_placeholders})
                             AND (t.hidden IS NULL OR t.hidden = 0 OR t.hidden = '')
                         GROUP BY 
                             t.branch_recived,
                             t.outlet_name_from,
                             t.transaction_refno,
-                            t.transfer_out_date,
-                            t2.name
+                            t.transfer_out_date
                     """
 
                     params1 = [start_date, end_date] + selected_stores
