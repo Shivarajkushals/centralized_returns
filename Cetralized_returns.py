@@ -2090,6 +2090,7 @@ elif st.session_state.page == "upload":
                     AND t1.store_full_name IN ({store_placeholders})
                     AND (s.hidden IS NULL OR s.hidden = 0 OR s.hidden = '')
                     AND t4.is_active = true
+                ORDER BY s.id
                     """
 
                     params = [start_date, end_date] + selected_stores
@@ -2221,6 +2222,7 @@ elif st.session_state.page == "upload":
                             DATE(t.created_date) BETWEEN %s AND %s
                             AND t1.store_full_name IN ({store_placeholders})
                             AND (t.hidden IS NULL OR t.hidden = 0 OR t.hidden = '')
+                        ORDER BY t.id
                     """
 
                     params = [start_date, end_date] + selected_stores
