@@ -2089,6 +2089,7 @@ elif st.session_state.page == "upload":
                     DATE(s.created_date) BETWEEN %s AND %s
                     AND t1.store_full_name IN ({store_placeholders})
                     AND (s.hidden IS NULL OR s.hidden = 0 OR s.hidden = '')
+                    AND t4.is_active = true
                     """
 
                     params = [start_date, end_date] + selected_stores
