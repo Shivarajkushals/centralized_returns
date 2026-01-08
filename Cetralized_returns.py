@@ -1141,8 +1141,7 @@ elif st.session_state.page == "Config":
 
 # Add this inside your application code after your current page options
 elif st.session_state.page == "upload":    
-    # options = ["RTV page", "RTO page", "SR page", "TO page", "Hide SR"]
-    options = ["SR page", "TO page", "Hide SR"]
+    options = ["RTV page", "RTO page", "SR page", "TO page", "Hide SR"]
 
     if "sidebar_open" not in st.session_state:
         st.session_state.sidebar_open = True
