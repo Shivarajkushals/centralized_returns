@@ -1160,8 +1160,8 @@ elif st.session_state.page == "upload":
 
     # Disable RTV and RTO pages
     if selected_page in ["RTV page", "RTO page"]:
-        st.warning("🚫 This page is temporarily disabled. Please contact admin.\n"
-                  "Click on the Sidebar on top right corner to access other pages.")
+        st.warning("🚫 This page is temporarily disabled. Please contact admin.")
+        st.warning("Click on the Sidebar on top right corner to access other pages.")
         st.stop()
     
     # Use selected_page variable instead of page variable
