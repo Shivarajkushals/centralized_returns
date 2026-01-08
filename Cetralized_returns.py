@@ -1158,6 +1158,11 @@ elif st.session_state.page == "upload":
             st.session_state.sidebar_open = not st.session_state.sidebar_open
             st.rerun()
 
+    # Disable RTV and RTO pages
+    if selected_page in ["RTV page", "RTO page"]:
+        st.warning("🚫 This page is temporarily disabled. Please contact admin.")
+        st.stop()
+    
     # Use selected_page variable instead of page variable
     if selected_page == "RTV page":
         col1, col2, col3 = st.columns([1.5, 8, 1.5])
