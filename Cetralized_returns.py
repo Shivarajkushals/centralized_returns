@@ -87,7 +87,7 @@ def fetch_all_data():
         cursor = conn.cursor(dictionary=True)
 
         # Fetch full table data
-        cursor.execute("SELECT * FROM tbl_wh_sales_returns WHERE is_hidden <> 1;")
+        cursor.execute("SELECT * FROM tbl_wh_sales_returns WHERE hidden <> 1;")
         sales_returns_data = cursor.fetchall()
 
         cursor.execute("SELECT * FROM tbl_wh_transfer_out;")
