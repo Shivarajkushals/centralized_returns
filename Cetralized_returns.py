@@ -1345,7 +1345,7 @@ elif st.session_state.page == "upload":
                     LEFT JOIN tbl_store_data t2 
                         ON t1.outlets_id = t2.id
                     WHERE (t2.store_full_name, msr.GST_bill_number, t1.combination_id, t1.barcode) IN ({placeholders}) 
-                        AND t1.bill_date >= CURDATE() - INTERVAL 120 DAY
+                        AND t1.bill_date >= CURDATE() - INTERVAL 180 DAY
                     GROUP BY t2.store_full_name, msr.GST_bill_number, t1.combination_id, t1.barcode;
                 """
 
