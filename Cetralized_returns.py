@@ -87,7 +87,7 @@ def fetch_all_data():
         cursor = conn.cursor(dictionary=True)
 
         # Fetch full table data
-        cursor.execute("SELECT * FROM tbl_wh_sales_returns WHERE hidden <> 1;")
+        cursor.execute("SELECT * FROM tbl_wh_sales_returns WHERE (hidden IS NULL OR hidden = 0 OR hidden = '');")
         sales_returns_data = cursor.fetchall()
 
         cursor.execute("SELECT * FROM tbl_wh_transfer_out;")
@@ -1538,11 +1538,11 @@ elif st.session_state.page == "upload":
                     sr_df["is_active"] = 1
                     sr_df["created_date"] = current_time
                     sr_df["modified_date"] = current_time  
-                    sr_df["return_date"] = pd.to_datetime(sr_df["return_date"]).dt.strftime('%Y-%m-%d')
+                    sr_df["return_date"] = pd.to_datetime(sr_df["return_date"], errors="coerce").dt.strftime('%Y-%m-%d')
                     sr_df["created_by"] = "WH Team"
-                    sr_df["modified_by"] = "WH Team"  
+                    sr_df["modified_by"] = "WH Team"
                     sr_df["tran_type"] = "Sales Returns"
-                    sr_df["batch_no"] = batch_no 
+                    sr_df["batch_no"] = batch_no
                     sr_df["RTO"] = 0
                     sr_df["SU_date"] = pd.to_datetime(sr_df["SU_date"], errors="coerce").dt.strftime('%Y-%m-%d %H:%M:%S')
                     
@@ -1560,9 +1560,9 @@ elif st.session_state.page == "upload":
                     to_df["created_date"] = current_time
                     to_df["modified_date"] = current_time 
                     to_df["created_by"] = "WH Team"
-                    to_df["return_date"] = pd.to_datetime(to_df["return_date"]).dt.strftime('%Y-%m-%d')  
-                    to_df["modified_by"] = "WH Team"  
-                    to_df["branch_recived"] = "Banglore_WH" 
+                    to_df["return_date"] = pd.to_datetime(to_df["return_date"], errors="coerce").dt.strftime('%Y-%m-%d')
+                    to_df["modified_by"] = "WH Team"
+                    to_df["branch_recived"] = "Banglore_WH"
                     to_df["transfer_out_date"] = current_time
                     to_df["batch_no"] = batch_no
                     to_df["RTO"] = 0
@@ -2301,17 +2301,17 @@ elif st.session_state.page == "upload":
                         st.dataframe(df_filtered1.reset_index(drop=True))
                 except Exception as e:
                     st.error(f"❌ Error querying data: {e}")
-                    
-            _, df_sales_2 = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
-            to_display = pd.DataFrame(df_sales_2)
 
-            st.write("SR PDF output:")
-            display_df = to_display
-            st.dataframe(display_df)
+                _, df_sales_2 = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
+                to_display = pd.DataFrame(df_sales_2)
 
-            if df_sales_2 is not None and not df_sales_2.empty:
-                display_sales_return_pdfs(df_sales_2)
-    
+                st.write("SR PDF output:")
+                display_df = to_display
+                st.dataframe(display_df)
+
+                if df_sales_2 is not None and not df_sales_2.empty:
+                    display_sales_return_pdfs(df_sales_2)
+
     elif selected_page == "TO page":
         st.subheader("🔍 Filter Transfer Out Data")
 
@@ -2420,42 +2420,42 @@ elif st.session_state.page == "upload":
                     
                 except Exception as e:
                     st.error(f"❌ Error querying data: {e}")
-            
-            df_sales_1, _ = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
-            to_display = pd.DataFrame(df_sales_1)
 
-            # Display sales data
-            st.write("TO PDF output:")
-            if isinstance(df_sales_1, pd.DataFrame) and not df_sales_1.empty:
-                st.dataframe(df_sales_1)
+                df_sales_1, _ = fetch_sales_data(DB_CONFIG, start_date, end_date, selected_stores)
+                to_display = pd.DataFrame(df_sales_1)
 
-                # Generate PDFs
-                pdf_files = generate_pdfs_from_df(df_sales_1)
+                # Display sales data
+                st.write("TO PDF output:")
+                if isinstance(df_sales_1, pd.DataFrame) and not df_sales_1.empty:
+                    st.dataframe(df_sales_1)
 
-                # Streamlit UI for downloading PDFs
-                st.header("Download Sales Reports")
-                for idx, (filename, pdf_bytes) in enumerate(pdf_files):
-                    # Parse filename to get outlet and TO number
-                    base_filename = filename.replace(".pdf", "")
-                    
-                    if "_TO" in base_filename:
-                        parts = base_filename.rsplit("_TO", 1)
-                        outlet_name = parts[0].replace("_", " ")
-                        to_number = "TO" + parts[1]
-                    else:
-                        outlet_name = base_filename.replace("_", " ")
-                        to_number = "Unknown"
-                    
-                    # Download button with in-memory PDF bytes
-                    st.download_button(
-                        label=f"📥 {outlet_name} - {to_number}",
-                        data=pdf_bytes,  # ← Direct bytes, no file reading needed
-                        file_name=filename,
-                        mime="application/pdf",
-                        key=f"download_to_pdf_{idx}"
-                    )
-            else:
-                st.error("❌ No data available to generate PDFs.")
+                    # Generate PDFs
+                    pdf_files = generate_pdfs_from_df(df_sales_1)
+
+                    # Streamlit UI for downloading PDFs
+                    st.header("Download Sales Reports")
+                    for idx, (filename, pdf_bytes) in enumerate(pdf_files):
+                        # Parse filename to get outlet and TO number
+                        base_filename = filename.replace(".pdf", "")
+
+                        if "_TO" in base_filename:
+                            parts = base_filename.rsplit("_TO", 1)
+                            outlet_name = parts[0].replace("_", " ")
+                            to_number = "TO" + parts[1]
+                        else:
+                            outlet_name = base_filename.replace("_", " ")
+                            to_number = "Unknown"
+
+                        # Download button with in-memory PDF bytes
+                        st.download_button(
+                            label=f"📥 {outlet_name} - {to_number}",
+                            data=pdf_bytes,  # ← Direct bytes, no file reading needed
+                            file_name=filename,
+                            mime="application/pdf",
+                            key=f"download_to_pdf_{idx}"
+                        )
+                else:
+                    st.error("❌ No data available to generate PDFs.")
 
     elif selected_page == "Hide SR":
         st.title("🔒 Hide SR Management")
