@@ -1,4 +1,85 @@
+import streamlit as st
+import pandas as pd
+import mysql.connector
+import requests
+import json
+from datetime import datetime
+import os
+from fpdf import FPDF
+import base64
+from io import BytesIO
 
+
+# Set Page Title
+st.set_page_config(page_title="Centralized_retuns", layout="wide")
+
+# Hide Streamlit's menu and footer
+hide_streamlit_style = """
+    <style>
+        #MainMenu {visibility: hidden;} /* Hides the three dots menu */
+        footer {visibility: hidden;} /* Hides the footer */
+        header {visibility: hidden;} /* Hides the header */
+    </style>
+"""
+st.markdown(hide_streamlit_style, unsafe_allow_html=True)
+
+# Initialize session state variables
+if "page" not in st.session_state:
+    st.session_state.page = "login"  # Default page is Login
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+if "Config" not in st.session_state:
+    st.session_state.config = False
+if "file_uploaded" not in st.session_state:
+    st.session_state.file_uploaded = False
+if "upload_page" not in st.session_state:
+    st.session_state.upload_page = "RTV page"
+if "hide_sr_authenticated" not in st.session_state:
+    st.session_state.hide_sr_authenticated = False
+
+
+# Function to switch pages instantly
+def switch_page(page_name):
+    st.session_state.page = page_name
+    st.rerun()  # Forces Streamlit to refresh the UI instantly
+
+main_container = st.empty()
+
+# Function to fetch and load credentials from GitHub
+@st.cache_data
+def load_credentials():
+    try:
+        # Get GitHub URL from secrets
+        url = st.secrets["credentials"]["github_url"]
+        response = requests.get(url)
+        if response.status_code == 200:
+            credentials = json.loads(response.text)  # Parse JSON content
+            return {list(user.keys())[0]: list(user.values())[0] for user in credentials}  # Convert to dictionary
+        else:
+            st.error("Failed to load credentials. Please check your connection.")
+            return {}
+    except Exception as e:
+        st.error(f"Error loading credentials: {str(e)}")
+        return {}
+
+# Load credentials
+VALID_CREDENTIALS = load_credentials()
+
+# Load Hide SR credentials from secrets
+try:
+    HIDE_SR_CREDENTIALS = {
+        st.secrets["hide_sr_credentials"]["admin_email"]: st.secrets["hide_sr_credentials"]["admin_password"],
+        st.secrets["hide_sr_credentials"]["manager_email"]: st.secrets["hide_sr_credentials"]["manager_password"]
+    }
+except Exception as e:
+    # Fallback to default if secrets not configured
+    st.warning("⚠️ Hide SR credentials not found in secrets, using defaults")
+    HIDE_SR_CREDENTIALS = {
+        "admin@hidesr.com": "HideSR@123",
+        "manager@hidesr.com": "Manager@123"
+    }
+
+DB_CONFIG = st.secrets["db_config"]
 
 def fetch_all_data():
     try:
